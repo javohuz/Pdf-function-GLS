@@ -1,0 +1,22 @@
+{
+  "date": "2026年4月25日",
+  "customer_name": "山田 太郎",
+  "address": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
+  "company_name": "グローバル・ロジスティックス・サービス株式会社",
+  "representative_name": "藤井 雄太郎",
+  "bond_title": "第8回普通社債",
+  "amount": "600万円",
+  "unit_count": "6口",
+  "payment_date": "2026年4月27日",
+  "bank_name": "GMOあおぞらネット銀行",
+  "branch_name": "法人営業部",
+  "account_type": "普通預金",
+  "account_number": "235859999",
+  "account_name": "グローバルロジスティックスサービス（カ",
+  "save_to_monday": false,
+  "monday": {
+    "enabled": false,
+    "item_name_template": "${customer_name}",
+    "save_mapped_columns": false
+  }
+}

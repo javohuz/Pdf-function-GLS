@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Bond Notice HTML Reference</title>
+    <style>
+      :root {
+        --page-width: 210mm;
+        --page-height: 297mm;
+        --page-padding-x: 24mm;
+        --page-padding-top: 18mm;
+        --page-padding-bottom: 18mm;
+        --text-color: #1a1a1a;
+        --muted-text: #555555;
+        --line-color: #b9bdc4;
+        --soft-fill: #f5f6f7;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        padding: 24px;
+        background: #eef1f4;
+        color: var(--text-color);
+        font-family: "Noto Serif JP", "Hiragino Mincho ProN", "Yu Mincho", serif;
+      }
+
+      .page {
+        width: var(--page-width);
+        min-height: var(--page-height);
+        margin: 0 auto;
+        padding: var(--page-padding-top) var(--page-padding-x) var(--page-padding-bottom);
+        background: #ffffff;
+        position: relative;
+      }
+
+      .top-rule {
+        border-top: 1.2px solid var(--line-color);
+        margin-bottom: 10mm;
+      }
+
+      .date {
+        text-align: right;
+        font-size: 11px;
+        color: var(--muted-text);
+      }
+
+      .header-grid {
+        display: grid;
+        grid-template-columns: 1fr 72mm;
+        gap: 14mm;
+        margin-top: 11mm;
+        align-items: start;
+      }
+
+      .recipient {
+        font-size: 14px;
+        line-height: 1.8;
+        padding-bottom: 2.5mm;
+        border-bottom: 1px solid var(--line-color);
+        width: 50mm;
+      }
+
+      .sender {
+        font-size: 11px;
+        line-height: 1.65;
+      }
+
+      .title-block {
+        text-align: center;
+        margin-top: 14mm;
+      }
+
+      .title-meta {
+        font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+        font-size: 10px;
+        color: var(--muted-text);
+        letter-spacing: 0.04em;
+      }
+
+      .title-main {
+        margin-top: 4mm;
+        font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+        font-size: 18px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .title-rule {
+        width: calc(100% - 52mm);
+        margin: 6mm auto 0;
+        border-top: 1px solid var(--line-color);
+      }
+
+      .body-copy {
+        margin: 11mm 4mm 0;
+        font-size: 11.5px;
+        line-height: 1.9;
+      }
+
+      .section-mark {
+        text-align: center;
+        margin-top: 11mm;
+        font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .details-card {
+        margin-top: 5.5mm;
+        border: 1px solid var(--line-color);
+      }
+
+      .details-card-header {
+        background: var(--soft-fill);
+        border-bottom: 1px solid var(--line-color);
+        text-align: center;
+        padding: 7px 14px;
+        font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+        font-size: 10px;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+      }
+
+      .detail-row {
+        display: grid;
+        grid-template-columns: 30mm 1fr;
+        border-bottom: 1px solid var(--line-color);
+      }
+
+      .detail-row:last-child {
+        border-bottom: none;
+      }
+
+      .detail-label {
+        padding: 9px 11px;
+        border-right: 1px solid var(--line-color);
+        color: var(--muted-text);
+        font-family: "Noto Sans JP", "Hiragino Sans", "Yu Gothic", sans-serif;
+        font-size: 10px;
+      }
+
+      .detail-value {
+        padding: 9px 12px;
+        font-size: 11.5px;
+        line-height: 1.7;
+      }
+
+      .note {
+        margin-top: 7mm;
+        font-size: 9.5px;
+        line-height: 1.7;
+        color: var(--muted-text);
+      }
+
+      .footer {
+        margin-top: 10mm;
+        text-align: right;
+        font-size: 11px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <div class="top-rule"></div>
+
+      <div class="date">{{ date }}</div>
+
+      <section class="header-grid">
+        <div class="recipient">{{ customer_name }}　様</div>
+
+        <div class="sender">
+          {{ address }}<br />
+          {{ company_name }}<br />
+          代表取締役　{{ representative_name }}
+        </div>
+      </section>
+
+      <section class="title-block">
+        <div class="title-meta">{{ company_name }}</div>
+        <div class="title-main">{{ bond_title }}　割当決定通知書</div>
+        <div class="title-rule"></div>
+      </section>
+
+      <section class="body-copy">
+        拝啓　平素より格別のご高配を賜り、厚く御礼申し上げます。このたびは当社の{{ bond_title }}へ
+        お申込みいただき、誠にありがとうございました。申込内容に基づき割当を決定いたしましたので、
+        下記の内容をご確認のうえ、払込期日までにお手続きくださいますようお願い申し上げます。
+      </section>
+
+      <div class="section-mark">記</div>
+
+      <section class="details-card">
+        <div class="details-card-header">払込内容</div>
+
+        <div class="detail-row">
+          <div class="detail-label">社債名</div>
+          <div class="detail-value">{{ bond_title }}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">割当金額</div>
+          <div class="detail-value">{{ amount }}（{{ unit_count }}）</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">払込期日</div>
+          <div class="detail-value">{{ payment_date }}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">金融機関</div>
+          <div class="detail-value">{{ bank_name }}　{{ branch_name }}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">預金種別</div>
+          <div class="detail-value">{{ account_type }}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">口座番号</div>
+          <div class="detail-value">{{ account_number }}</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-label">口座名義</div>
+          <div class="detail-value">{{ account_name }}</div>
+        </div>
+      </section>
+
+      <section class="note">
+        なお、本通知書は払込内容のご案内を目的としたものです。ご不明な点がございましたら、
+        発行会社までお問い合わせください。
+      </section>
+
+      <div class="footer">以上</div>
+    </main>
+  </body>
+</html>

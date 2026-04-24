@@ -1,0 +1,15 @@
+.DS_Store
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+output/
+
+# Local-only config with real secrets
+monday_config.json
+
+# Local misc
+.env
+.env.*
+

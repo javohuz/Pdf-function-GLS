@@ -1,0 +1,33 @@
+{
+  "enabled": true,
+  "api_token": "",
+  "api_version": "",
+  "api_url": "https://api.monday.com/v2",
+  "file_api_url": "https://api.monday.com/v2/file",
+  "board_id": "",
+  "group_id": "",
+  "file_column_id": "",
+  "pdf_path_column_id": "",
+  "raw_json_column_id": "",
+  "save_local_pdf_copy": false,
+  "item_name_template": "${customer_name}",
+  "upload_pdf": true,
+  "save_mapped_columns": false,
+  "column_map": {
+    "date": "",
+    "customer_name": "",
+    "address": "",
+    "company_name": "",
+    "representative_name": "",
+    "bond_title": "",
+    "amount": "",
+    "unit_count": "",
+    "payment_date": "",
+    "bank_name": "",
+    "branch_name": "",
+    "account_type": "",
+    "account_number": "",
+    "account_name": ""
+  },
+  "column_values_override": {}
+}

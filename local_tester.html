@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>PDF to monday Tester</title>
+    <style>
+      :root {
+        --bg: #eef3f7;
+        --panel: #ffffff;
+        --panel-soft: #f6f8fb;
+        --border: #d8e0e8;
+        --text: #16202a;
+        --muted: #627487;
+        --accent: #1b6ef3;
+        --accent-dark: #1559c7;
+        --success: #12805c;
+        --danger: #cf3e35;
+        --shadow: 0 18px 45px rgba(18, 31, 53, 0.08);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        background:
+          radial-gradient(circle at top left, rgba(27, 110, 243, 0.08), transparent 28%),
+          linear-gradient(180deg, #f8fbfd 0%, #eef3f7 100%);
+        font-family: "Inter", "Segoe UI", sans-serif;
+      }
+
+      .page {
+        max-width: 1220px;
+        margin: 0 auto;
+        padding: 32px 20px 48px;
+      }
+
+      .hero {
+        display: flex;
+        justify-content: space-between;
+        gap: 20px;
+        align-items: flex-end;
+        margin-bottom: 24px;
+      }
+
+      .hero h1 {
+        margin: 0;
+        font-size: 32px;
+        line-height: 1.05;
+        letter-spacing: -0.04em;
+      }
+
+      .hero p {
+        margin: 10px 0 0;
+        max-width: 760px;
+        color: var(--muted);
+        font-size: 15px;
+        line-height: 1.65;
+      }
+
+      .hero-badge {
+        padding: 10px 14px;
+        border-radius: 999px;
+        background: rgba(27, 110, 243, 0.08);
+        color: var(--accent-dark);
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: 1.15fr 0.85fr;
+        gap: 20px;
+        align-items: start;
+      }
+
+      .stack {
+        display: grid;
+        gap: 20px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        box-shadow: var(--shadow);
+        overflow: hidden;
+      }
+
+      .panel-header {
+        padding: 18px 22px 14px;
+        border-bottom: 1px solid var(--border);
+        background: linear-gradient(180deg, #ffffff 0%, #fbfcfd 100%);
+      }
+
+      .panel-header h2 {
+        margin: 0;
+        font-size: 18px;
+        letter-spacing: -0.02em;
+      }
+
+      .panel-header p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.6;
+      }
+
+      .panel-body {
+        padding: 20px 22px 22px;
+      }
+
+      .form-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px 14px;
+      }
+
+      .field {
+        display: grid;
+        gap: 7px;
+      }
+
+      .field.full {
+        grid-column: 1 / -1;
+      }
+
+      label {
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--muted);
+        text-transform: uppercase;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px 13px;
+        border: 1px solid var(--border);
+        border-radius: 12px;
+        background: #fff;
+        color: var(--text);
+        font: inherit;
+        transition: border-color 0.18s ease, box-shadow 0.18s ease;
+      }
+
+      input:focus,
+      textarea:focus {
+        outline: none;
+        border-color: rgba(27, 110, 243, 0.7);
+        box-shadow: 0 0 0 4px rgba(27, 110, 243, 0.1);
+      }
+
+      .big-button {
+        width: 100%;
+        border: 0;
+        border-radius: 16px;
+        padding: 16px 18px;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+        color: #fff;
+        font: inherit;
+        font-size: 15px;
+        font-weight: 800;
+        cursor: pointer;
+        transition: transform 0.16s ease, filter 0.16s ease;
+      }
+
+      .big-button:hover {
+        transform: translateY(-1px);
+        filter: brightness(1.02);
+      }
+
+      .big-button:disabled {
+        cursor: wait;
+        opacity: 0.75;
+        transform: none;
+      }
+
+      .inline-note {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 12px;
+        line-height: 1.7;
+      }
+
+      .backend-bar {
+        display: grid;
+        grid-template-columns: 1fr auto;
+        gap: 12px;
+        align-items: end;
+        margin-bottom: 20px;
+      }
+
+      .status-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .status-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 13px 14px;
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        background: var(--panel-soft);
+      }
+
+      .status-row strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 12px;
+        letter-spacing: 0.02em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+
+      .status-row span {
+        font-size: 14px;
+        word-break: break-word;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        border-radius: 999px;
+        padding: 7px 11px;
+        font-size: 12px;
+        font-weight: 700;
+      }
+
+      .pill.ok {
+        background: rgba(18, 128, 92, 0.1);
+        color: var(--success);
+      }
+
+      .pill.warn {
+        background: rgba(207, 62, 53, 0.12);
+        color: var(--danger);
+      }
+
+      .result-card {
+        background: var(--panel-soft);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 16px;
+      }
+
+      .result-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-bottom: 14px;
+      }
+
+      .link-box {
+        display: grid;
+        gap: 6px;
+        margin-bottom: 14px;
+      }
+
+      .link-box a {
+        color: var(--accent-dark);
+        font-weight: 700;
+        text-decoration: none;
+      }
+
+      .link-box a:hover {
+        text-decoration: underline;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 290px;
+        resize: vertical;
+        padding: 12px 13px;
+        border-radius: 12px;
+        border: 1px solid #101722;
+        background: #101722;
+        color: #e7eef7;
+        font-family: "SFMono-Regular", "Menlo", monospace;
+        font-size: 12.5px;
+        line-height: 1.7;
+      }
+
+      .muted {
+        color: var(--muted);
+      }
+
+      @media (max-width: 980px) {
+        .layout {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      @media (max-width: 720px) {
+        .hero {
+          flex-direction: column;
+          align-items: flex-start;
+        }
+
+        .form-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <div>
+          <h1>One-Click PDF to monday</h1>
+          <p>
+            Enter only the document data here. The backend will use its own monday configuration, generate the PDF,
+            create a new monday row, upload the PDF, and return the result in one step. By default the PDF does not stay
+            on local disk unless backend debug saving is enabled.
+          </p>
+        </div>
+        <div class="hero-badge">Standalone HTML + API Backend</div>
+      </section>
+
+      <section class="layout">
+        <div class="stack">
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Part 1. Document Data</h2>
+              <p>
+                Fill the fields below and press the one action button. This HTML can run from anywhere as long as the
+                backend URL below points to your Flask API.
+              </p>
+            </div>
+            <div class="panel-body">
+              <div class="backend-bar">
+                <div class="field">
+                  <label for="backend_url">Backend URL</label>
+                  <input id="backend_url" value="http://127.0.0.1:5001" />
+                </div>
+                <button class="big-button" id="save-backend-btn" type="button" style="width: auto; min-width: 170px;">
+                  Save Backend URL
+                </button>
+              </div>
+
+              <div class="form-grid">
+                <div class="field">
+                  <label for="date">Date</label>
+                  <input id="date" value="2026年4月25日" />
+                </div>
+                <div class="field">
+                  <label for="customer_name">Customer Name</label>
+                  <input id="customer_name" value="山田 太郎" />
+                </div>
+                <div class="field full">
+                  <label for="address">Address</label>
+                  <input id="address" value="佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室" />
+                </div>
+                <div class="field full">
+                  <label for="company_name">Company Name</label>
+                  <input id="company_name" value="グローバル・ロジスティックス・サービス株式会社" />
+                </div>
+                <div class="field">
+                  <label for="representative_name">Representative Name</label>
+                  <input id="representative_name" value="藤井 雄太郎" />
+                </div>
+                <div class="field">
+                  <label for="bond_title">Bond Title</label>
+                  <input id="bond_title" value="第8回普通社債" />
+                </div>
+                <div class="field">
+                  <label for="amount">Amount</label>
+                  <input id="amount" value="600万円" />
+                </div>
+                <div class="field">
+                  <label for="unit_count">Unit Count</label>
+                  <input id="unit_count" value="6口" />
+                </div>
+                <div class="field">
+                  <label for="payment_date">Payment Date</label>
+                  <input id="payment_date" value="2026年4月27日" />
+                </div>
+                <div class="field">
+                  <label for="bank_name">Bank Name</label>
+                  <input id="bank_name" value="GMOあおぞらネット銀行" />
+                </div>
+                <div class="field">
+                  <label for="branch_name">Branch Name</label>
+                  <input id="branch_name" value="法人営業部" />
+                </div>
+                <div class="field">
+                  <label for="account_type">Account Type</label>
+                  <input id="account_type" value="普通預金" />
+                </div>
+                <div class="field">
+                  <label for="account_number">Account Number</label>
+                  <input id="account_number" value="2358599" />
+                </div>
+                <div class="field full">
+                  <label for="account_name">Account Name</label>
+                  <input id="account_name" value="グローバルロジスティックスサービス（カ" />
+                </div>
+              </div>
+
+              <div style="margin-top: 20px;">
+                <button class="big-button" id="submit-btn" type="button">
+                  Generate PDF and Save to monday
+                </button>
+              </div>
+
+              <p class="inline-note">
+                This button sends only the document fields. monday settings such as token, board ID, and file column ID
+                are taken from the backend config automatically. You can open this HTML file directly from your desktop
+                or host it anywhere and just point it to the right backend URL.
+              </p>
+            </div>
+          </article>
+        </div>
+
+        <div class="stack">
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Part 2. Backend Status</h2>
+              <p>This is read-only information coming from the server-side config.</p>
+            </div>
+            <div class="panel-body">
+              <div class="status-grid" id="backend-status">
+                <div class="status-row">
+                  <div>
+                    <strong>Status</strong>
+                    <span class="muted">Loading backend config...</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article class="panel">
+            <div class="panel-header">
+              <h2>Part 3. Result</h2>
+              <p>The latest PDF link and monday response will appear here after submission.</p>
+            </div>
+            <div class="panel-body">
+              <div class="result-card">
+                <div class="result-meta" id="result-meta">
+                  <span class="pill ok">Ready</span>
+                </div>
+                <div class="link-box" id="result-links">
+                  <span class="muted">No PDF generated yet.</span>
+                </div>
+                <label for="response-json" style="margin-bottom: 8px; display: block;">Response JSON</label>
+                <textarea id="response-json" readonly></textarea>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+
+    <script>
+      const fields = [
+        "date",
+        "customer_name",
+        "address",
+        "company_name",
+        "representative_name",
+        "bond_title",
+        "amount",
+        "unit_count",
+        "payment_date",
+        "bank_name",
+        "branch_name",
+        "account_type",
+        "account_number",
+        "account_name"
+      ];
+
+      const submitBtn = document.getElementById("submit-btn");
+      const backendUrlInput = document.getElementById("backend_url");
+      const saveBackendBtn = document.getElementById("save-backend-btn");
+      const responseJson = document.getElementById("response-json");
+      const resultLinks = document.getElementById("result-links");
+      const resultMeta = document.getElementById("result-meta");
+      const backendStatus = document.getElementById("backend-status");
+      const BACKEND_URL_STORAGE_KEY = "pdf_monday_backend_url";
+
+      function setStatus(label, kind = "ok") {
+        resultMeta.innerHTML = `<span class="pill ${kind}">${label}</span>`;
+      }
+
+      function setResponse(data) {
+        responseJson.value = JSON.stringify(data, null, 2);
+      }
+
+      function renderLinks(data) {
+        resultLinks.innerHTML = "";
+
+        if (data && data.file_path) {
+          const fileName = data.file_path.split("/").pop();
+          resultLinks.innerHTML += `
+            <a href="${buildApiUrl(`/output/${encodeURIComponent(fileName)}`)}" target="_blank" rel="noreferrer">Open Generated PDF</a>
+            <span class="muted">${fileName}</span>
+          `;
+        } else if (data && data.generated_filename) {
+          resultLinks.innerHTML += `
+            <span class="muted">Generated file: ${data.generated_filename}</span>
+            <span class="muted">Local file saving is disabled on the backend.</span>
+          `;
+        }
+
+        if (data && data.monday_result && data.monday_result.item_id) {
+          resultLinks.innerHTML += `
+            <span class="muted">monday item created: ${data.monday_result.item_id}</span>
+          `;
+        }
+
+        if (!resultLinks.innerHTML.trim()) {
+          resultLinks.innerHTML = `<span class="muted">No links available yet.</span>`;
+        }
+      }
+
+      function buildPayload() {
+        const payload = {};
+        for (const field of fields) {
+          payload[field] = document.getElementById(field).value.trim();
+        }
+        return payload;
+      }
+
+      function normalizedBackendUrl() {
+        return backendUrlInput.value.trim().replace(/\/+$/, "");
+      }
+
+      function buildApiUrl(path) {
+        const cleanPath = path.startsWith("/") ? path : `/${path}`;
+        return `${normalizedBackendUrl()}${cleanPath}`;
+      }
+
+      function renderBackendStatus(data) {
+        const monday = data.monday || {};
+        const statusPill = monday.integration_ready
+          ? `<span class="pill ok">Ready</span>`
+          : `<span class="pill warn">Needs Config</span>`;
+
+        const missing = Array.isArray(monday.missing_fields) && monday.missing_fields.length
+          ? monday.missing_fields.join(", ")
+          : "None";
+
+        backendStatus.innerHTML = `
+          <div class="status-row">
+            <div>
+              <strong>Integration Status</strong>
+              <span>${statusPill}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Board ID</strong>
+              <span>${monday.board_id || "Not set"}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Group ID</strong>
+              <span>${monday.group_id || "Default board group"}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Files Column ID</strong>
+              <span>${monday.file_column_id || "Not set"}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Item Name Template</strong>
+              <span>${monday.item_name_template || "${customer_name}"}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Upload PDF</strong>
+              <span>${monday.upload_pdf ? "Yes" : "No"}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Save Local PDF Copy</strong>
+              <span>${monday.save_local_pdf_copy ? "Yes" : "No"}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Missing Backend Fields</strong>
+              <span>${missing}</span>
+            </div>
+          </div>
+        `;
+      }
+
+      async function loadBackendDefaults() {
+        try {
+          const response = await fetch(buildApiUrl("/config/defaults"));
+          const data = await response.json();
+
+          if (!response.ok || !data.success) {
+            throw new Error(data.message || "Failed to load backend defaults.");
+          }
+
+          renderBackendStatus(data);
+        } catch (error) {
+          backendStatus.innerHTML = `
+            <div class="status-row">
+              <div>
+                <strong>Backend Status</strong>
+                <span style="color: var(--danger);">${error.message}</span>
+              </div>
+            </div>
+          `;
+        }
+      }
+
+      async function handleSubmit() {
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Processing...";
+        setStatus("Generating PDF and saving to monday...");
+
+        try {
+          const response = await fetch(buildApiUrl("/generate-pdf"), {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(buildPayload())
+          });
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(data.message || `Request failed with status ${response.status}`);
+          }
+
+          setResponse(data);
+          renderLinks(data);
+
+          if (data.monday_error) {
+            setStatus("PDF created, monday failed", "warn");
+          } else if (data.monday_result) {
+            setStatus("PDF created and saved to monday", "ok");
+          } else if (data.monday_requested) {
+            setStatus("PDF created, monday not completed", "warn");
+          } else {
+            setStatus("PDF created only", "warn");
+          }
+        } catch (error) {
+          setStatus("Request failed", "warn");
+          setResponse({ success: false, message: error.message });
+          renderLinks(null);
+        } finally {
+          submitBtn.disabled = false;
+          submitBtn.textContent = "Generate PDF and Save to monday";
+        }
+      }
+
+      function loadSavedBackendUrl() {
+        const savedUrl = window.localStorage.getItem(BACKEND_URL_STORAGE_KEY);
+        if (savedUrl) {
+          backendUrlInput.value = savedUrl;
+        }
+      }
+
+      function saveBackendUrl() {
+        const url = normalizedBackendUrl();
+        window.localStorage.setItem(BACKEND_URL_STORAGE_KEY, url);
+        setStatus("Backend URL saved", "ok");
+        loadBackendDefaults();
+      }
+
+      document.getElementById("submit-btn").addEventListener("click", handleSubmit);
+      saveBackendBtn.addEventListener("click", saveBackendUrl);
+      loadSavedBackendUrl();
+      setResponse({ success: true, message: "Ready. Fill the fields and press the one action button." });
+      loadBackendDefaults();
+    </script>
+  </body>
+</html>
