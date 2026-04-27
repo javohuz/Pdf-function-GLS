@@ -18,6 +18,7 @@ Local Flask service that:
 - `sample_request.json`: sample API payload
 - `monday_config.example.json`: safe example config for local monday setup
 - `Procfile`: Cloud Run source deploy entrypoint
+- `Dockerfile`: Cloud Run container image with WeasyPrint native Linux libraries
 
 ## Template Types
 
@@ -102,16 +103,27 @@ If `save_to_monday` is included in a request, that explicit value controls uploa
 
 ## Cloud Run Notes
 
-This repo is prepared for Cloud Run source deploy:
+This repo is prepared for Cloud Run deploy:
 
 - Python version pinned in `.python-version`
 - production server in `requirements.txt`
 - startup command in `Procfile`
 - local secret file excluded in `.gcloudignore`
+- Docker image installs WeasyPrint's native Linux libraries and Japanese fonts
 
 For Cloud Run, prefer environment variables and Secret Manager instead of `monday_config.json`.
 
-WeasyPrint also needs native Pango/GLib libraries in the deployment image. If source deploy does not provide them, use a Docker-based Cloud Run deploy and install the native packages in the image.
+WeasyPrint also needs native Pango/GLib/font libraries in the deployment image. The included `Dockerfile` installs the Debian packages needed by WeasyPrint plus `fonts-noto-cjk` for Japanese output.
+
+Deploy with Dockerfile-based Cloud Run build:
+
+```bash
+gcloud run deploy YOUR_SERVICE_NAME \
+  --source . \
+  --allow-unauthenticated
+```
+
+If Cloud Run was connected to GitHub before this file existed, confirm the build is using the new `Dockerfile`, then redeploy after pushing.
 
 ## Security Note
 

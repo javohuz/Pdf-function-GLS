@@ -873,8 +873,10 @@ def html_to_pdf_bytes(html_content: str) -> bytes:
     except Exception as exc:
         raise RuntimeError(
             "WeasyPrint is required for HTML template PDF generation. "
-            "Install Python dependencies with pip install -r requirements.txt "
-            "and native Pango/GLib libraries with brew install pango on macOS."
+            "Install Python dependencies with pip install -r requirements.txt. "
+            "Native rendering libraries are also required: use brew install pango on macOS, "
+            "or deploy Cloud Run with the included Dockerfile so Debian packages such as "
+            "libpango-1.0-0, libpangoft2-1.0-0, libharfbuzz-subset0, and fonts-noto-cjk are installed."
         ) from exc
 
     return HTML(string=html_content, base_url=str(BASE_DIR)).write_pdf()
