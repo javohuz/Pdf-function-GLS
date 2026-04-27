@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>社債条件概要</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-bond-summary-page,
+  .gls-bond-summary-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-bond-summary-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 28mm 18mm 22mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+  }
+
+  .gls-bond-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 1.4px solid #111;
+    font-size: 17px;
+    line-height: 1.45;
+  }
+
+  .gls-bond-summary-table td {
+    border: 1.2px solid #111;
+    vertical-align: middle;
+    padding: 3mm 3.5mm;
+    font-weight: 700;
+  }
+
+  .gls-bond-summary-label {
+    width: 50mm;
+    background: #f7f7f7;
+    font-size: 17px;
+    letter-spacing: 0.02em;
+  }
+
+  .gls-bond-summary-value {
+    width: auto;
+    font-size: 17px;
+  }
+
+  .gls-bond-summary-header-left {
+    background: #fff;
+    height: 15mm;
+  }
+
+  .gls-bond-summary-header {
+    font-size: 19px;
+    font-weight: 700;
+    line-height: 1.4;
+  }
+
+  .gls-bond-summary-strong {
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .gls-bond-creditor {
+    line-height: 1.8;
+    padding-top: 4mm !important;
+    padding-bottom: 4mm !important;
+  }
+
+  .gls-bond-large-row td {
+    height: 17mm;
+  }
+
+  .gls-bond-payment-row td {
+    height: 20mm;
+  }
+
+  @media print {
+    .gls-bond-summary-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-bond-summary-page">
+  <table class="gls-bond-summary-table">
+    <tr>
+      <td class="gls-bond-summary-label gls-bond-summary-header-left"></td>
+      <td class="gls-bond-summary-value gls-bond-summary-header">
+        {{ issuer_company_name }}<br />
+        第{{ bond_number }}回普通社債
+      </td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">社債募集総額</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ total_bond_amount }}</td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">社債の金額</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ bond_unit_text }}</td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">社債の利率</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ interest_rate }}</td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">払込期日</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ payment_deadline }}</td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">発行日</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ issue_date }}</td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">償還期日</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ redemption_date }}</td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">社債権者</td>
+      <td class="gls-bond-summary-value gls-bond-creditor">
+        住所　{{ bondholder_address }}<br />
+        名前　{{ bondholder_name }}
+      </td>
+    </tr>
+
+    <tr>
+      <td class="gls-bond-summary-label">払込金額</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ paid_amount }}</td>
+    </tr>
+
+    <tr class="gls-bond-payment-row">
+      <td class="gls-bond-summary-label">払込日</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ payment_date }}</td>
+    </tr>
+
+    <tr class="gls-bond-payment-row">
+      <td class="gls-bond-summary-label">利払日</td>
+      <td class="gls-bond-summary-value gls-bond-summary-strong">{{ interest_payment_date }}</td>
+    </tr>
+  </table>
+</section>
+</body>
+</html>

@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>【GLS】第{{ bond_number }}回普通社債申込書</title>
+  <style>
+    @page {
+      size: A4;
+      margin: 0;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: #ffffff;
+      color: #111;
+      font-family: "Hiragino Sans", "Yu Gothic", "Meiryo", sans-serif;
+    }
+
+    .bond-page {
+      width: 210mm;
+      min-height: 297mm;
+      margin: 0 auto;
+      padding: 20mm 18mm 18mm;
+      background: #fff;
+    }
+
+    .bond-header {
+      text-align: center;
+      margin-bottom: 14mm;
+    }
+
+    .bond-company-name {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 2mm;
+      letter-spacing: 0.02em;
+    }
+
+    .bond-document-title {
+      font-size: 24px;
+      font-weight: 700;
+      line-height: 1.35;
+      letter-spacing: 0.04em;
+    }
+
+    .bond-recipient {
+      margin-bottom: 12mm;
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.6;
+    }
+
+    .bond-recipient-line {
+      display: inline-block;
+      min-width: 112mm;
+      padding-bottom: 1mm;
+      border-bottom: 1.3px solid #111;
+    }
+
+    .bond-main-title {
+      text-align: center;
+      margin-bottom: 10mm;
+    }
+
+    .bond-name {
+      font-size: 22px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 1.5mm;
+    }
+
+    .bond-period {
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.5;
+    }
+
+    .amount-block {
+      width: 150mm;
+      margin: 0 auto 4mm;
+    }
+
+    .amount-row {
+      display: grid;
+      grid-template-columns: 22mm 1fr 12mm;
+      align-items: end;
+      column-gap: 3mm;
+      margin-bottom: 2mm;
+    }
+
+    .amount-label {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+      padding: 1mm 1.5mm;
+    }
+
+    .amount-value {
+      min-height: 11mm;
+      border-bottom: 2px solid #111;
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: right;
+      padding: 0 2mm 1mm;
+    }
+
+    .amount-unit {
+      font-size: 20px;
+      font-weight: 700;
+      line-height: 1.2;
+      text-align: center;
+      padding: 1mm 0;
+    }
+
+    .unit-row {
+      text-align: center;
+      font-size: 17px;
+      font-weight: 700;
+      line-height: 1.4;
+      margin-bottom: 10mm;
+    }
+
+    .unit-inline {
+      display: inline-block;
+      min-width: 22mm;
+      border-bottom: 1.5px solid #111;
+      text-align: center;
+      padding: 0 1mm;
+    }
+
+    .statement-date-row {
+      display: grid;
+      grid-template-columns: 1fr 42mm;
+      align-items: end;
+      column-gap: 8mm;
+      margin-bottom: 10mm;
+    }
+
+    .statement-text {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.7;
+    }
+
+    .statement-highlight {
+      padding: 1mm 1.5mm;
+      display: inline-block;
+    }
+
+    .date-box {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.6;
+      text-align: right;
+      padding: 1mm 1.5mm;
+      white-space: nowrap;
+    }
+
+    .form-block {
+      margin-top: 2mm;
+    }
+
+    .field-row {
+      margin-bottom: 10mm;
+    }
+
+    .field-label {
+      font-size: 16px;
+      font-weight: 700;
+      line-height: 1.5;
+      margin-bottom: 1.5mm;
+    }
+
+    .label-highlight {
+      padding: 1mm 1.5mm;
+      display: inline-block;
+    }
+
+    .field-line {
+      width: 100%;
+      min-height: 10mm;
+      border-bottom: 1.5px solid #111;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.5;
+      padding: 0 1mm 1.5mm;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    .postal-line {
+      width: 22mm;
+      min-height: 9mm;
+      border-bottom: 1.5px solid #111;
+      font-size: 16px;
+      font-weight: 600;
+      line-height: 1.5;
+      padding: 0 1mm 1mm;
+      display: flex;
+      align-items: flex-end;
+      margin-top: 2mm;
+    }
+
+    .name-line {
+      width: 100%;
+      min-height: 10mm;
+      border-bottom: 1.5px solid #111;
+      font-size: 18px;
+      font-weight: 700;
+      line-height: 1.5;
+      padding: 0 1mm 1.5mm;
+      display: flex;
+      align-items: flex-end;
+    }
+
+    @media print {
+      body {
+        background: #fff;
+      }
+
+      .bond-page {
+        margin: 0;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="bond-page">
+    <header class="bond-header">
+      <div class="bond-company-name">{{ issuer_company_name }}</div>
+      <div class="bond-document-title">普通社債申込書</div>
+    </header>
+
+    <section class="bond-recipient">
+      <span class="bond-recipient-line">{{ issuer_company_name }} 御中</span>
+    </section>
+
+    <section class="bond-main-title">
+      <div class="bond-name">第{{ bond_number }}回普通社債</div>
+      <div class="bond-period">{{ bond_period }}</div>
+    </section>
+
+    <section class="amount-block">
+      <div class="amount-row">
+        <div class="amount-label">額面</div>
+        <div class="amount-value">{{ face_amount }}</div>
+        <div class="amount-unit">円</div>
+      </div>
+      <div class="unit-row">
+        （1口1,000万円につき <span class="unit-inline">{{ unit_count }}</span> 口）
+      </div>
+    </section>
+
+    <section class="statement-date-row">
+      <div class="statement-text">
+        <span class="statement-highlight">募集要項承諾の上、申込致します。</span>
+      </div>
+      <div class="date-box">{{ application_date }}</div>
+    </section>
+
+    <section class="form-block">
+      <div class="field-row">
+        <div class="field-label">
+          <span class="label-highlight">住所　〒</span>
+        </div>
+        <div class="field-line">{{ applicant_address_line_1 }}</div>
+        <div class="postal-line">{{ applicant_postal_code }}</div>
+      </div>
+
+      <div class="field-row">
+        <div class="field-label">
+          <span class="label-highlight">申込人氏名</span>
+        </div>
+        <div class="name-line">{{ applicant_name }}</div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

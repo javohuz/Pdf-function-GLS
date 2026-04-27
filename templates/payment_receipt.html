@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>社債払込金預り証</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-receipt-page,
+  .gls-receipt-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-receipt-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 34mm 24mm 24mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+    position: relative;
+  }
+
+  .gls-receipt-title {
+    text-align: center;
+    font-size: 26px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.35;
+    margin: 0 0 30mm;
+  }
+
+  .gls-receipt-recipient {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.5;
+    margin-bottom: 18mm;
+  }
+
+  .gls-receipt-recipient-name {
+    display: inline-block;
+    min-width: 42mm;
+    padding-bottom: 1mm;
+    border-bottom: 1px solid #111;
+  }
+
+  .gls-receipt-body {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 2;
+    margin-bottom: 22mm;
+  }
+
+  .gls-receipt-mark {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 13mm;
+  }
+
+  .gls-receipt-info {
+    width: 105mm;
+    margin: 0 auto 22mm;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.9;
+  }
+
+  .gls-receipt-info-row {
+    display: grid;
+    grid-template-columns: 38mm 1fr;
+    column-gap: 8mm;
+    align-items: baseline;
+    margin-bottom: 3mm;
+  }
+
+  .gls-receipt-label {
+    letter-spacing: 0.45em;
+    white-space: nowrap;
+  }
+
+  .gls-receipt-value {
+    white-space: nowrap;
+  }
+
+  .gls-receipt-amount {
+    font-size: 18px;
+    letter-spacing: 0.02em;
+  }
+
+  .gls-receipt-company {
+    width: 95mm;
+    margin-left: auto;
+    margin-top: 16mm;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.9;
+    text-align: right;
+  }
+
+  .gls-receipt-end {
+    margin-top: 4mm;
+    text-align: right;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  @media print {
+    .gls-receipt-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-receipt-page">
+  <h1 class="gls-receipt-title">
+    社債払込金預り証
+  </h1>
+
+  <section class="gls-receipt-recipient">
+    <span class="gls-receipt-recipient-name">{{ recipient_name }}</span>　様
+  </section>
+
+  <section class="gls-receipt-body">
+    この度は、弊社の第{{ bond_number }}回普通社債をお引き受けいただき誠にありがとうございました。<br />
+    下記の通り、社債払込金の入金を確認いたしました。
+  </section>
+
+  <div class="gls-receipt-mark">記</div>
+
+  <section class="gls-receipt-info">
+    <div class="gls-receipt-info-row">
+      <div class="gls-receipt-label">入金日</div>
+      <div class="gls-receipt-value">{{ deposit_date }}</div>
+    </div>
+
+    <div class="gls-receipt-info-row">
+      <div>払込金額</div>
+      <div class="gls-receipt-value gls-receipt-amount">
+        金　{{ deposit_amount }}円
+      </div>
+    </div>
+  </section>
+
+  <section class="gls-receipt-company">
+    {{ issue_date }}<br />
+    {{ issuer_company_name }}<br />
+    代表取締役　{{ representative_name }}
+    <div class="gls-receipt-end">以上</div>
+  </section>
+</section>
+</body>
+</html>

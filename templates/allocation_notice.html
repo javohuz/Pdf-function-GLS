@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>割当決定通知書</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-allocation-page,
+  .gls-allocation-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-allocation-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 25mm 23mm 22mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+    font-size: 15px;
+    line-height: 1.6;
+    position: relative;
+  }
+
+  .gls-allocation-date {
+    text-align: right;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 15mm;
+  }
+
+  .gls-allocation-top {
+    display: grid;
+    grid-template-columns: 1fr 86mm;
+    column-gap: 12mm;
+    align-items: start;
+    margin-bottom: 30mm;
+  }
+
+  .gls-allocation-recipient {
+    padding-top: 8mm;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .gls-allocation-sender {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .gls-allocation-title {
+    text-align: center;
+    margin-bottom: 20mm;
+    font-weight: 700;
+    line-height: 1.55;
+  }
+
+  .gls-allocation-title-main {
+    font-size: 20px;
+    letter-spacing: 0.03em;
+  }
+
+  .gls-allocation-title-sub {
+    font-size: 21px;
+    letter-spacing: 0.08em;
+  }
+
+  .gls-allocation-body {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.9;
+    margin-bottom: 12mm;
+  }
+
+  .gls-allocation-mark {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 10mm;
+  }
+
+  .gls-allocation-details {
+    width: 128mm;
+    margin: 0 auto;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.75;
+  }
+
+  .gls-allocation-row {
+    display: grid;
+    grid-template-columns: 38mm 1fr;
+    column-gap: 4mm;
+    margin-bottom: 1.5mm;
+  }
+
+  .gls-allocation-label {
+    text-align: justify;
+    text-align-last: justify;
+    white-space: nowrap;
+  }
+
+  .gls-allocation-colon {
+    display: inline-block;
+    margin: 0 2mm;
+  }
+
+  .gls-allocation-bank {
+    line-height: 1.7;
+  }
+
+  .gls-allocation-end {
+    position: absolute;
+    right: 24mm;
+    bottom: 28mm;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  @media print {
+    .gls-allocation-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-allocation-page">
+  <div class="gls-allocation-date">
+    {{ notice_date }}
+  </div>
+
+  <section class="gls-allocation-top">
+    <div class="gls-allocation-recipient">
+      {{ recipient_name }}　様
+    </div>
+
+    <div class="gls-allocation-sender">
+      {{ issuer_address }}<br />
+      {{ issuer_company_name }}<br />
+      代表取締役　{{ representative_name }}
+    </div>
+  </section>
+
+  <section class="gls-allocation-title">
+    <div class="gls-allocation-title-main">
+      {{ issuer_company_name }}　 第{{ bond_number }}回普通社債
+    </div>
+    <div class="gls-allocation-title-sub">
+      割当決定通知書
+    </div>
+  </section>
+
+  <section class="gls-allocation-body">
+    当社の第{{ bond_number }}回普通社債に申込みいただきありがとうございました。<br />
+    申込書に記載の額面のとおり割当を決定いたしましたので、下記のとおり払込をお願いいたします。
+  </section>
+
+  <div class="gls-allocation-mark">記</div>
+
+  <section class="gls-allocation-details">
+    <div class="gls-allocation-row">
+      <div><span class="gls-allocation-label">割当口数</span><span class="gls-allocation-colon">：</span></div>
+      <div>{{ allocated_amount }}（{{ allocated_unit_count }}口）</div>
+    </div>
+
+    <div class="gls-allocation-row">
+      <div><span class="gls-allocation-label">払込期日</span><span class="gls-allocation-colon">：</span></div>
+      <div>{{ payment_deadline }}</div>
+    </div>
+
+    <div class="gls-allocation-row">
+      <div><span class="gls-allocation-label">払込金融機関</span><span class="gls-allocation-colon">：</span></div>
+      <div class="gls-allocation-bank">
+        {{ bank_name }}　{{ branch_name }}<br />
+        {{ account_type }}　口座番号　{{ account_number }}<br />
+        {{ account_holder }}
+      </div>
+    </div>
+  </section>
+
+  <div class="gls-allocation-end">以上</div>
+</section>
+</body>
+</html>

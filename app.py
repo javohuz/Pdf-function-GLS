@@ -1,7 +1,7 @@
-import html
 import json
 import mimetypes
 import os
+import re
 import uuid
 from datetime import datetime
 from io import BytesIO
@@ -11,58 +11,189 @@ from typing import Dict, List, Tuple
 
 import requests
 from flask import Flask, jsonify, make_response, request, send_from_directory
-from reportlab.lib.colors import Color, HexColor
-from reportlab.lib.enums import TA_CENTER, TA_LEFT
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle
-from reportlab.lib.units import mm
-from reportlab.pdfbase import pdfmetrics
-from reportlab.pdfbase.cidfonts import UnicodeCIDFont
-from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.pdfgen import canvas
-from reportlab.platypus import Paragraph
+from jinja2 import Environment, FileSystemLoader, meta, select_autoescape
 
 
 app = Flask(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
 OUTPUT_DIR = BASE_DIR / "output"
+TEMPLATE_DIR = BASE_DIR / "templates"
 MONDAY_CONFIG_PATH = BASE_DIR / "monday_config.json"
-TESTER_HTML_PATH = BASE_DIR / "local_tester.html"
 
-EMBEDDED_FONT_NAME = "PrototypeJapaneseFont"
-FALLBACK_HEADING_FONT_NAME = "HeiseiKakuGo-W5"
-FALLBACK_BODY_FONT_NAME = "HeiseiMin-W3"
+DEFAULT_TEMPLATE_TYPE = "allocation_notice_gmo"
 
-TEXT_COLOR = HexColor("#1A1A1A")
-MUTED_TEXT_COLOR = HexColor("#555555")
-LINE_COLOR = HexColor("#B9BDC4")
-SOFT_FILL_COLOR = HexColor("#F5F6F7")
+PDF_TEMPLATE_REGISTRY = {
+    "allocation_notice": {
+        "file": "allocation_notice.html",
+        "label": "Allocation Decision Notice",
+    },
+    "allocation_notice_gmo": {
+        "file": "allocation_notice_gmo.html",
+        "label": "Allocation Decision Notice - GMO Bank",
+    },
+    "application_form": {
+        "file": "application_form.html",
+        "label": "Bond Application Form",
+    },
+    "application_form_period": {
+        "file": "application_form_period.html",
+        "label": "Bond Application Form With Period",
+    },
+    "condition_summary": {
+        "file": "condition_summary.html",
+        "label": "Bond Condition Summary",
+    },
+    "interest_calculation": {
+        "file": "interest_calculation.html",
+        "label": "Interest Notice Calculation",
+    },
+    "monthly_interest_notice": {
+        "file": "monthly_interest_notice.html",
+        "label": "Monthly Interest Notice",
+    },
+    "issuance_terms_long": {
+        "file": "issuance_terms_long.html",
+        "label": "Long-Term Issuance Terms",
+    },
+    "payment_receipt": {
+        "file": "payment_receipt.html",
+        "label": "Payment Deposit Receipt",
+    },
+    "terms_two_page": {
+        "file": "terms_two_page.html",
+        "label": "Bond Terms - Two Pages",
+    },
+}
 
-REQUIRED_FIELDS = [
-    "date",
-    "customer_name",
-    "address",
-    "company_name",
-    "representative_name",
-    "bond_title",
-    "amount",
-    "unit_count",
-    "payment_date",
-    "bank_name",
-    "branch_name",
-    "account_type",
-    "account_number",
-    "account_name",
-]
+TEMPLATE_TYPE_ALIASES = {
+    "allocation": "allocation_notice",
+    "allocation_gmo": "allocation_notice_gmo",
+    "gmo": "allocation_notice_gmo",
+    "application": "application_form",
+    "application_period": "application_form_period",
+    "summary": "condition_summary",
+    "interest": "interest_calculation",
+    "monthly_interest": "monthly_interest_notice",
+    "receipt": "payment_receipt",
+    "terms": "terms_two_page",
+    "gls_bond_allocation_decision_notice": "allocation_notice",
+    "gls_bond_allocation_decision_notice_gmo": "allocation_notice_gmo",
+    "gls_bond_application_form": "application_form",
+    "gls_bond_application_form_with_period": "application_form_period",
+    "gls_bond_condition_summary_sheet": "condition_summary",
+    "gls_bond_interest_notice_calculation": "interest_calculation",
+    "gls_bond_interest_notice_monthly_payment": "monthly_interest_notice",
+    "gls_bond_issuance_terms_long_term_421": "issuance_terms_long",
+    "gls_bond_payment_deposit_receipt": "payment_receipt",
+    "gls_bond_terms_two_pages": "terms_two_page",
+}
 
-LOCAL_FONT_CANDIDATES = [
-    BASE_DIR / "fonts" / "NotoSansJP-Regular.ttf",
-    BASE_DIR / "fonts" / "NotoSerifJP-Regular.otf",
-    BASE_DIR / "fonts" / "NotoSansCJKjp-Regular.otf",
-]
+CONTROL_PAYLOAD_KEYS = {
+    "data",
+    "document_type",
+    "monday",
+    "save_local_pdf_copy",
+    "save_to_monday",
+    "template",
+    "template_type",
+}
 
-FONT_INFO_CACHE: Dict[str, str] = {}
+SAMPLE_FIELD_VALUES = {
+    "account_holder": "グローバルロジスティックスサービス（カ",
+    "account_name": "グローバルロジスティックスサービス（カ",
+    "account_number": "235859999",
+    "account_type": "普通預金",
+    "address": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
+    "allocated_amount": "600万円",
+    "allocated_unit_count": "6",
+    "amount": "600万円",
+    "applicant_address_line_1": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
+    "applicant_address_line_2": "〒840-0815",
+    "applicant_name": "山田 太郎",
+    "applicant_postal_code": "840-0815",
+    "application_date": "2026年4月25日",
+    "bank_name": "GMOあおぞらネット銀行",
+    "bond_number": "8",
+    "bond_period": "2026年4月27日から2027年4月27日まで",
+    "bond_title": "第8回普通社債",
+    "bond_unit_amount": "1口 金1,000,000円",
+    "bond_unit_text": "1口 金1,000,000円",
+    "bondholder_address": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
+    "bondholder_name": "山田 太郎",
+    "branch_name": "法人営業部",
+    "calculation_detail": "600万円 × 年8.0% ÷ 12ヶ月",
+    "company_name": "グローバル・ロジスティックス・サービス株式会社",
+    "contact_note": "本書の内容についてご不明な点がございましたら、発行会社までお問い合わせください。",
+    "contact_note_line_1": "本書の内容についてご不明な点がございましたら、発行会社までお問い合わせください。",
+    "contact_note_line_2": "",
+    "contact_note_line_3": "",
+    "contact_note_line_4": "",
+    "created_date": "2026年4月25日",
+    "customer_name": "山田 太郎",
+    "date": "2026年4月25日",
+    "deposit_amount": "6,000,000",
+    "deposit_date": "2026年4月27日",
+    "face_amount": "6,000,000",
+    "fax": "0952-00-0000",
+    "guarantor_1": "藤井 雄太郎",
+    "guarantor_2": "藤井 太郎",
+    "head_office_address": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
+    "head_office_zip": "840-0815",
+    "income_tax": "6,126円",
+    "interest_amount": "40,000円",
+    "interest_date": "2026年5月27日",
+    "interest_description": "利息",
+    "interest_payment_date": "毎月27日",
+    "interest_rate": "年8.0%",
+    "issue_date": "2026年4月27日",
+    "issuer_address": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
+    "issuer_company_name": "グローバル・ロジスティックス・サービス株式会社",
+    "issuer_zip": "840-0815",
+    "joint_guarantee_text": "当社の代表取締役は、本社債の元利金の返還債務について、当社と連帯して保証する。",
+    "monthly_interest_after_tax": "31,874円",
+    "net_payment_amount": "31,874円",
+    "notice_date": "2026年4月25日",
+    "paid_amount": "600万円",
+    "payment_date": "2026年4月27日",
+    "payment_deadline": "2026年4月27日",
+    "principal_amount": "600万円",
+    "principal_date": "2026年4月27日",
+    "principal_description": "元金",
+    "recipient_name": "山田 太郎",
+    "redemption_date": "2027年4月27日",
+    "registration_number": "T0000000000000",
+    "representative_name": "藤井 雄太郎",
+    "resident_tax": "2,000円",
+    "tel": "0952-00-0000",
+    "tokyo_branch_address": "東京都千代田区丸の内1-1-1",
+    "tokyo_branch_zip": "100-0005",
+    "total_amount": "40,000円",
+    "total_bond_amount": "金6,000,000円",
+    "transfer_account_note": "GMOあおぞらネット銀行　法人営業部　普通預金　235859999",
+    "unit_count": "6",
+}
+
+TEMPLATE_FIELD_CACHE: Dict[str, List[str]] = {}
+TEST_HIGHLIGHT_RE = re.compile(
+    r"\s*background(?:-color)?\s*:\s*(?:#fff2cc|#f3ecc9|yellow)\s*;?",
+    re.IGNORECASE,
+)
+FILENAME_UNSAFE_RE = re.compile(r'[\\/:*?"<>|\s]+')
+
+
+def blank_if_none(value):
+    return "" if value is None else value
+
+
+JINJA_ENV = Environment(
+    loader=FileSystemLoader(str(TEMPLATE_DIR)),
+    autoescape=select_autoescape(
+        enabled_extensions=("html", "xml"),
+        default_for_string=True,
+    ),
+    finalize=blank_if_none,
+)
 
 
 def ensure_output_dir() -> None:
@@ -86,19 +217,6 @@ def add_cors_headers(response):
     response.headers["Access-Control-Allow-Headers"] = "Content-Type, Authorization"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
     return response
-
-
-def html_text(value: str) -> str:
-    return html.escape(str(value or "")).replace("\n", "<br/>")
-
-
-def validate_payload(payload: Dict) -> List[str]:
-    missing = []
-    for field in REQUIRED_FIELDS:
-        value = payload.get(field)
-        if value is None or str(value).strip() == "":
-            missing.append(field)
-    return missing
 
 
 def parse_bool(value, default: bool = False) -> bool:
@@ -163,7 +281,7 @@ def get_default_monday_config() -> Dict:
         "raw_json_column_id": os.getenv("MONDAY_RAW_JSON_COLUMN_ID", "").strip(),
         "item_name_template": os.getenv(
             "MONDAY_ITEM_NAME_TEMPLATE",
-            "${customer_name}",
+            "${template_label} ${recipient_name} ${bond_number}",
         ).strip(),
         "upload_pdf": parse_bool(os.getenv("MONDAY_UPLOAD_PDF"), True),
         "save_mapped_columns": parse_bool(os.getenv("MONDAY_SAVE_MAPPED_COLUMNS"), False),
@@ -192,7 +310,7 @@ def resolve_monday_config(payload: Dict) -> Dict:
     config["pdf_path_column_id"] = str(config.get("pdf_path_column_id", "")).strip()
     config["raw_json_column_id"] = str(config.get("raw_json_column_id", "")).strip()
     config["item_name_template"] = str(
-        config.get("item_name_template", "${customer_name}")
+        config.get("item_name_template", "${template_label} ${recipient_name} ${bond_number}")
     ).strip()
 
     if not isinstance(config.get("column_map"), dict):
@@ -235,8 +353,40 @@ def monday_request(query: str, variables: Dict, config: Dict) -> Dict:
 
 def build_monday_item_name(data: Dict, config: Dict) -> str:
     template = Template(config["item_name_template"])
-    safe_values = {key: str(value) for key, value in data.items() if value is not None}
-    return template.safe_substitute(safe_values)
+    safe_values = {key: str(value) for key, value in data.items() if not is_blank(value)}
+    item_name = template.safe_substitute(safe_values).strip()
+
+    if item_name and "${" not in item_name:
+        return item_name
+
+    fallback_parts = [
+        first_value(data, "template_label", "template_type"),
+        first_value(data, "recipient_name", "customer_name", "applicant_name", "bondholder_name"),
+        first_value(data, "issuer_company_name", "company_name"),
+    ]
+
+    bond_number = first_value(data, "bond_number")
+    if bond_number:
+        fallback_parts.append(f"第{bond_number}回普通社債")
+    else:
+        fallback_parts.append(first_value(data, "bond_title"))
+
+    fallback_parts.append(
+        first_value(
+            data,
+            "notice_date",
+            "created_date",
+            "application_date",
+            "issue_date",
+            "payment_deadline",
+            "redemption_date",
+            "payment_date",
+            "deposit_date",
+            "date",
+        )
+    )
+
+    return " - ".join(str(part).strip() for part in fallback_parts if not is_blank(part)) or "Generated PDF"
 
 
 def normalize_monday_column_value(value):
@@ -455,435 +605,328 @@ def upload_to_monday(pdf_bytes: bytes, pdf_filename: str, data: Dict, local_pdf_
     return result
 
 
-def get_font_info() -> Dict[str, str]:
-    """
-    Register Japanese-capable fonts and cache the result.
+def normalize_template_type(raw_template_type) -> str:
+    template_type = str(raw_template_type or DEFAULT_TEMPLATE_TYPE).strip()
+    template_type = template_type.rsplit("/", 1)[-1].replace(".html", "")
+    template_type = TEMPLATE_TYPE_ALIASES.get(template_type, template_type)
 
-    Preferred:
-    1. Bundled font file in ./fonts or PDF_JP_FONT_PATH
-    2. ReportLab built-in Japanese CID fonts
+    if template_type not in PDF_TEMPLATE_REGISTRY:
+        choices = ", ".join(sorted(PDF_TEMPLATE_REGISTRY.keys()))
+        raise ValueError(f"Unknown template_type '{raw_template_type}'. Choose one of: {choices}.")
 
-    Bundling a real font file is the best production option because the PDF
-    embeds it and stays more consistent across viewers and Cloud Run instances.
-    """
-    global FONT_INFO_CACHE
-    if FONT_INFO_CACHE:
-        return FONT_INFO_CACHE
+    return template_type
 
-    candidate_paths: List[Path] = []
-    env_font_path = os.getenv("PDF_JP_FONT_PATH", "").strip()
-    if env_font_path:
-        candidate_paths.append(Path(env_font_path))
-    candidate_paths.extend(LOCAL_FONT_CANDIDATES)
 
-    last_error = None
-    for font_path in candidate_paths:
-        if not font_path.exists():
-            continue
+def requested_template_type(payload: Dict) -> str:
+    return normalize_template_type(
+        payload.get("template_type")
+        or payload.get("document_type")
+        or payload.get("template")
+        or DEFAULT_TEMPLATE_TYPE
+    )
 
-        try:
-            if EMBEDDED_FONT_NAME not in pdfmetrics.getRegisteredFontNames():
-                if font_path.suffix.lower() == ".ttc":
-                    pdfmetrics.registerFont(
-                        TTFont(EMBEDDED_FONT_NAME, str(font_path), subfontIndex=0)
-                    )
-                else:
-                    pdfmetrics.registerFont(TTFont(EMBEDDED_FONT_NAME, str(font_path)))
 
-            FONT_INFO_CACHE = {
-                "heading_font": EMBEDDED_FONT_NAME,
-                "body_font": EMBEDDED_FONT_NAME,
-                "font_mode": "embedded_font_file",
-                "font_source": str(font_path),
+def template_config(template_type: str) -> Dict:
+    normalized_type = normalize_template_type(template_type)
+    return PDF_TEMPLATE_REGISTRY[normalized_type]
+
+
+def template_source(template_type: str) -> str:
+    config = template_config(template_type)
+    source, _, _ = JINJA_ENV.loader.get_source(JINJA_ENV, config["file"])
+    return source
+
+
+def template_fields(template_type: str) -> List[str]:
+    normalized_type = normalize_template_type(template_type)
+    if normalized_type in TEMPLATE_FIELD_CACHE:
+        return TEMPLATE_FIELD_CACHE[normalized_type]
+
+    ast = JINJA_ENV.parse(template_source(normalized_type))
+    fields = sorted(meta.find_undeclared_variables(ast))
+    TEMPLATE_FIELD_CACHE[normalized_type] = fields
+    return fields
+
+
+def template_catalog() -> List[Dict]:
+    catalog = []
+    for template_type, config in PDF_TEMPLATE_REGISTRY.items():
+        fields = template_fields(template_type)
+        catalog.append(
+            {
+                "type": template_type,
+                "label": config["label"],
+                "file": config["file"],
+                "fields": fields,
+                "sample_data": {
+                    field: SAMPLE_FIELD_VALUES.get(field, "")
+                    for field in fields
+                },
             }
-            return FONT_INFO_CACHE
-        except Exception as exc:
-            last_error = str(exc)
+        )
+    return catalog
 
-    if FALLBACK_HEADING_FONT_NAME not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(UnicodeCIDFont(FALLBACK_HEADING_FONT_NAME))
-    if FALLBACK_BODY_FONT_NAME not in pdfmetrics.getRegisteredFontNames():
-        pdfmetrics.registerFont(UnicodeCIDFont(FALLBACK_BODY_FONT_NAME))
 
-    FONT_INFO_CACHE = {
-        "heading_font": FALLBACK_HEADING_FONT_NAME,
-        "body_font": FALLBACK_BODY_FONT_NAME,
-        "font_mode": "reportlab_cid_fallback",
-        "font_source": last_error or "built-in Japanese CID fonts",
+def extract_document_data(payload: Dict) -> Dict:
+    document_data = {}
+
+    nested_data = payload.get("data")
+    if isinstance(nested_data, dict):
+        document_data.update(nested_data)
+
+    for key, value in payload.items():
+        if key not in CONTROL_PAYLOAD_KEYS:
+            document_data[key] = value
+
+    return document_data
+
+
+def is_blank(value) -> bool:
+    return value is None or str(value).strip() == ""
+
+
+def first_value(data: Dict, *keys: str):
+    for key in keys:
+        value = data.get(key)
+        if not is_blank(value):
+            return value
+    return ""
+
+
+def set_if_blank(data: Dict, key: str, value) -> None:
+    if is_blank(data.get(key)) and not is_blank(value):
+        data[key] = value
+
+
+def normalize_unit_count(value) -> str:
+    text = str(value or "").strip()
+    return text[:-1].strip() if text.endswith("口") else text
+
+
+def filename_part(value, fallback: str = "") -> str:
+    text = str(value or fallback or "").strip()
+    text = FILENAME_UNSAFE_RE.sub("-", text)
+    text = re.sub(r"-{2,}", "-", text).strip("-. _")
+    return text[:60]
+
+
+def build_pdf_filename(template_info: Dict, context: Dict) -> str:
+    recipient = first_value(
+        context,
+        "recipient_name",
+        "customer_name",
+        "applicant_name",
+        "bondholder_name",
+    )
+    bond = first_value(context, "bond_number", "bond_title")
+    document_date = first_value(
+        context,
+        "notice_date",
+        "created_date",
+        "application_date",
+        "issue_date",
+        "payment_deadline",
+        "payment_date",
+        "deposit_date",
+        "date",
+    )
+    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
+    unique_id = uuid.uuid4().hex[:8]
+
+    parts = [
+        filename_part(template_info["template_type"], "document"),
+        filename_part(recipient),
+        filename_part(f"bond-{bond}" if bond else ""),
+        filename_part(document_date),
+        timestamp,
+        unique_id,
+    ]
+    return "-".join(part for part in parts if part) + ".pdf"
+
+
+def parse_bond_number(value) -> str:
+    match = re.search(r"第\s*([0-9０-９]+)\s*回", str(value or ""))
+    return match.group(1) if match else ""
+
+
+def add_derived_aliases(data: Dict) -> Dict:
+    set_if_blank(data, "recipient_name", first_value(data, "customer_name", "applicant_name", "bondholder_name"))
+    set_if_blank(data, "customer_name", first_value(data, "recipient_name", "applicant_name", "bondholder_name"))
+    set_if_blank(data, "applicant_name", first_value(data, "recipient_name", "customer_name"))
+    set_if_blank(data, "bondholder_name", first_value(data, "recipient_name", "customer_name"))
+
+    set_if_blank(data, "issuer_company_name", first_value(data, "company_name"))
+    set_if_blank(data, "company_name", first_value(data, "issuer_company_name"))
+
+    set_if_blank(data, "issuer_address", first_value(data, "address", "head_office_address", "bondholder_address"))
+    set_if_blank(data, "address", first_value(data, "issuer_address", "head_office_address", "bondholder_address"))
+    set_if_blank(data, "head_office_address", first_value(data, "issuer_address", "address"))
+    set_if_blank(data, "bondholder_address", first_value(data, "address", "issuer_address"))
+    set_if_blank(data, "applicant_address_line_1", first_value(data, "address", "bondholder_address"))
+
+    set_if_blank(data, "notice_date", first_value(data, "date", "created_date", "application_date", "issue_date"))
+    set_if_blank(data, "created_date", first_value(data, "date", "notice_date", "issue_date"))
+    set_if_blank(data, "application_date", first_value(data, "date", "notice_date", "issue_date"))
+    set_if_blank(data, "issue_date", first_value(data, "date", "notice_date", "payment_date", "payment_deadline"))
+    set_if_blank(data, "date", first_value(data, "notice_date", "created_date", "application_date", "issue_date"))
+
+    set_if_blank(data, "payment_deadline", first_value(data, "payment_date"))
+    set_if_blank(data, "payment_date", first_value(data, "payment_deadline"))
+    set_if_blank(data, "deposit_date", first_value(data, "payment_date", "payment_deadline"))
+
+    set_if_blank(data, "account_holder", first_value(data, "account_name"))
+    set_if_blank(data, "account_name", first_value(data, "account_holder"))
+
+    set_if_blank(data, "allocated_amount", first_value(data, "amount", "face_amount", "paid_amount", "deposit_amount"))
+    set_if_blank(data, "amount", first_value(data, "allocated_amount", "face_amount", "paid_amount", "deposit_amount"))
+    set_if_blank(data, "paid_amount", first_value(data, "allocated_amount", "amount"))
+    set_if_blank(data, "deposit_amount", first_value(data, "paid_amount", "amount"))
+    set_if_blank(data, "principal_amount", first_value(data, "paid_amount", "amount"))
+
+    if not is_blank(data.get("unit_count")):
+        data["unit_count"] = normalize_unit_count(data["unit_count"])
+    if not is_blank(data.get("allocated_unit_count")):
+        data["allocated_unit_count"] = normalize_unit_count(data["allocated_unit_count"])
+    set_if_blank(data, "allocated_unit_count", normalize_unit_count(first_value(data, "unit_count")))
+    set_if_blank(data, "unit_count", normalize_unit_count(first_value(data, "allocated_unit_count")))
+
+    set_if_blank(data, "bond_number", parse_bond_number(first_value(data, "bond_title")))
+    if not is_blank(data.get("bond_number")):
+        set_if_blank(data, "bond_title", f'第{data["bond_number"]}回普通社債')
+
+    set_if_blank(data, "bank_name", first_value(data, "bank"))
+    set_if_blank(data, "branch_name", first_value(data, "branch"))
+
+    return data
+
+
+def build_template_context(document_data: Dict, template_type: str) -> Dict:
+    context = {
+        key: blank_if_none(value)
+        for key, value in document_data.items()
     }
-    return FONT_INFO_CACHE
+    add_derived_aliases(context)
+
+    for field in template_fields(template_type):
+        context.setdefault(field, "")
+
+    return context
 
 
-def make_styles(font_info: Dict[str, str]) -> Dict[str, ParagraphStyle]:
-    heading_font = font_info["heading_font"]
-    body_font = font_info["body_font"]
-
-    return {
-        "sender": ParagraphStyle(
-            "sender",
-            fontName=body_font,
-            fontSize=9.7,
-            leading=14.0,
-            alignment=TA_LEFT,
-            textColor=TEXT_COLOR,
-            wordWrap="CJK",
-        ),
-        "body": ParagraphStyle(
-            "body",
-            fontName=body_font,
-            fontSize=10.6,
-            leading=17.5,
-            alignment=TA_LEFT,
-            textColor=TEXT_COLOR,
-            wordWrap="CJK",
-        ),
-        "table_value": ParagraphStyle(
-            "table_value",
-            fontName=body_font,
-            fontSize=10.4,
-            leading=16.0,
-            alignment=TA_LEFT,
-            textColor=TEXT_COLOR,
-            wordWrap="CJK",
-        ),
-        "table_label": ParagraphStyle(
-            "table_label",
-            fontName=heading_font,
-            fontSize=9.6,
-            leading=14.0,
-            alignment=TA_LEFT,
-            textColor=MUTED_TEXT_COLOR,
-            wordWrap="CJK",
-        ),
-        "title_meta": ParagraphStyle(
-            "title_meta",
-            fontName=heading_font,
-            fontSize=9.2,
-            leading=13.0,
-            alignment=TA_CENTER,
-            textColor=MUTED_TEXT_COLOR,
-            wordWrap="CJK",
-        ),
-        "title": ParagraphStyle(
-            "title",
-            fontName=heading_font,
-            fontSize=16.2,
-            leading=21.5,
-            alignment=TA_CENTER,
-            textColor=TEXT_COLOR,
-            wordWrap="CJK",
-        ),
-    }
+def remove_test_highlights(html_content: str) -> str:
+    return TEST_HIGHLIGHT_RE.sub("", html_content)
 
 
-def draw_text(
-    pdf: canvas.Canvas,
-    text: str,
-    x: float,
-    y: float,
-    font_name: str,
-    font_size: float,
-    align: str = "left",
-    color: Color = TEXT_COLOR,
-) -> float:
-    text = str(text or "")
-    width = pdf.stringWidth(text, font_name, font_size)
+def ensure_full_html_document(html_content: str) -> str:
+    if "<html" in html_content.lower():
+        return html_content
 
-    if align == "center":
-        draw_x = x - (width / 2)
-    elif align == "right":
-        draw_x = x - width
-    else:
-        draw_x = x
-
-    pdf.saveState()
-    pdf.setFillColor(color)
-    pdf.setFont(font_name, font_size)
-    pdf.drawString(draw_x, y, text)
-    pdf.restoreState()
-    return width
+    return f"""<!DOCTYPE html>
+<html lang="ja">
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      html,
+      body {{
+        margin: 0;
+        padding: 0;
+        background: #ffffff;
+      }}
+    </style>
+  </head>
+  <body>
+    {html_content}
+  </body>
+</html>
+"""
 
 
-def draw_paragraph(
-    pdf: canvas.Canvas,
-    text: str,
-    x: float,
-    top_y: float,
-    width: float,
-    style: ParagraphStyle,
-) -> Tuple[float, float]:
-    paragraph = Paragraph(html_text(text), style)
-    wrapped_width, wrapped_height = paragraph.wrap(width, 200 * mm)
-    paragraph.drawOn(pdf, x, top_y - wrapped_height)
-    return wrapped_width, wrapped_height
+def render_template_html(template_type: str, context: Dict) -> str:
+    config = template_config(template_type)
+    template = JINJA_ENV.get_template(config["file"])
+    html_content = template.render(context)
+    html_content = remove_test_highlights(html_content)
+    return ensure_full_html_document(html_content)
 
 
-def draw_rule(
-    pdf: canvas.Canvas,
-    x1: float,
-    y1: float,
-    x2: float,
-    y2: float,
-    stroke_color: Color = LINE_COLOR,
-    line_width: float = 0.8,
-) -> None:
-    pdf.saveState()
-    pdf.setStrokeColor(stroke_color)
-    pdf.setLineWidth(line_width)
-    pdf.line(x1, y1, x2, y2)
-    pdf.restoreState()
-
-
-def make_detail_rows(data: Dict) -> List[Tuple[str, str]]:
-    return [
-        ("社債名", data["bond_title"]),
-        ("割当金額", f'{data["amount"]}（{data["unit_count"]}）'),
-        ("払込期日", data["payment_date"]),
-        ("金融機関", f'{data["bank_name"]}　{data["branch_name"]}'),
-        ("預金種別", data["account_type"]),
-        ("口座番号", data["account_number"]),
-        ("口座名義", data["account_name"]),
+def configure_native_library_paths() -> None:
+    fallback_paths = ["/opt/homebrew/lib", "/usr/local/lib"]
+    existing_paths = [
+        path
+        for path in os.getenv("DYLD_FALLBACK_LIBRARY_PATH", "").split(":")
+        if path
     ]
 
+    for path in fallback_paths:
+        if Path(path).exists() and path not in existing_paths:
+            existing_paths.append(path)
 
-def draw_detail_table(
-    pdf: canvas.Canvas,
-    rows: List[Tuple[str, str]],
-    x: float,
-    top_y: float,
-    width: float,
-    styles: Dict[str, ParagraphStyle],
-    font_info: Dict[str, str],
-) -> float:
-    heading_font = font_info["heading_font"]
-    label_style = styles["table_label"]
-    value_style = styles["table_value"]
+    if existing_paths:
+        os.environ["DYLD_FALLBACK_LIBRARY_PATH"] = ":".join(existing_paths)
 
-    header_height = 8.5 * mm
-    label_width = 30 * mm
-    inner_padding_x = 3.8 * mm
-    inner_padding_y = 2.7 * mm
-    value_width = width - label_width - (2 * inner_padding_x)
 
-    prepared_rows = []
-    total_rows_height = 0.0
-    for label, value in rows:
-        label_paragraph = Paragraph(html_text(label), label_style)
-        _, label_height = label_paragraph.wrap(label_width - (2 * inner_padding_x), 40 * mm)
-        value_paragraph = Paragraph(html_text(value), value_style)
-        _, value_height = value_paragraph.wrap(value_width, 200 * mm)
-        content_height = max(label_height, value_height)
-        row_height = max(10.2 * mm, content_height + (2 * inner_padding_y))
-        prepared_rows.append(
+def html_to_pdf_bytes(html_content: str) -> bytes:
+    configure_native_library_paths()
+
+    try:
+        from weasyprint import HTML
+    except Exception as exc:
+        raise RuntimeError(
+            "WeasyPrint is required for HTML template PDF generation. "
+            "Install Python dependencies with pip install -r requirements.txt "
+            "and native Pango/GLib libraries with brew install pango on macOS."
+        ) from exc
+
+    return HTML(string=html_content, base_url=str(BASE_DIR)).write_pdf()
+
+
+def build_pdf(document_data: Dict, template_type: str) -> Tuple[bytes, Dict, Dict]:
+    normalized_type = normalize_template_type(template_type)
+    config = template_config(normalized_type)
+    fields = template_fields(normalized_type)
+    context = build_template_context(document_data, normalized_type)
+    html_content = render_template_html(normalized_type, context)
+    pdf_bytes = html_to_pdf_bytes(html_content)
+    empty_fields = [
+        field
+        for field in fields
+        if is_blank(context.get(field))
+    ]
+
+    return (
+        pdf_bytes,
+        {
+            "template_type": normalized_type,
+            "template_label": config["label"],
+            "template_file": config["file"],
+            "template_fields": fields,
+            "empty_fields": empty_fields,
+        },
+        context,
+    )
+
+
+def monday_requested_from_payload(payload: Dict, config: Dict) -> bool:
+    if "save_to_monday" in payload:
+        return parse_bool(payload.get("save_to_monday"), False)
+    return bool(config.get("enabled", False))
+
+
+@app.route("/templates", methods=["GET", "OPTIONS"])
+def list_templates():
+    if request.method == "OPTIONS":
+        return make_response("", 204)
+
+    try:
+        return jsonify(
             {
-                "label": label,
-                "value": value,
-                "label_paragraph": label_paragraph,
-                "label_height": label_height,
-                "paragraph": value_paragraph,
-                "value_height": value_height,
-                "row_height": row_height,
+                "success": True,
+                "default_template_type": DEFAULT_TEMPLATE_TYPE,
+                "templates": template_catalog(),
             }
-        )
-        total_rows_height += row_height
-
-    table_height = header_height + total_rows_height
-    table_bottom_y = top_y - table_height
-
-    pdf.saveState()
-    pdf.setFillColor(SOFT_FILL_COLOR)
-    pdf.rect(x, top_y - header_height, width, header_height, fill=1, stroke=0)
-    pdf.setStrokeColor(LINE_COLOR)
-    pdf.setLineWidth(0.9)
-    pdf.rect(x, table_bottom_y, width, table_height, fill=0, stroke=1)
-    pdf.restoreState()
-
-    draw_text(
-        pdf,
-        "払込内容",
-        x + (width / 2),
-        top_y - (header_height / 2) - 4.0,
-        heading_font,
-        9.8,
-        align="center",
-        color=TEXT_COLOR,
-    )
-
-    current_top_y = top_y - header_height
-    separator_x = x + label_width
-
-    for index, row in enumerate(prepared_rows):
-        row_bottom_y = current_top_y - row["row_height"]
-
-        draw_rule(pdf, separator_x, current_top_y, separator_x, row_bottom_y, line_width=0.55)
-        if index < len(prepared_rows) - 1:
-            draw_rule(pdf, x, row_bottom_y, x + width, row_bottom_y, line_width=0.55)
-
-        label_top_y = current_top_y - ((row["row_height"] - row["label_height"]) / 2)
-        row["label_paragraph"].drawOn(
-            pdf,
-            x + inner_padding_x,
-            label_top_y - row["label_height"],
-        )
-
-        value_top_y = current_top_y - ((row["row_height"] - row["value_height"]) / 2)
-        row["paragraph"].drawOn(
-            pdf,
-            separator_x + inner_padding_x,
-            value_top_y - row["value_height"],
-        )
-
-        current_top_y = row_bottom_y
-
-    return table_bottom_y
-
-def build_pdf(data: Dict) -> Tuple[bytes, Dict[str, str]]:
-    font_info = get_font_info()
-    styles = make_styles(font_info)
-    heading_font = font_info["heading_font"]
-    body_font = font_info["body_font"]
-
-    pdf_buffer = BytesIO()
-    pdf = canvas.Canvas(pdf_buffer, pagesize=A4)
-    page_width, page_height = A4
-
-    left_margin = 24 * mm
-    right_margin = page_width - (24 * mm)
-    content_width = page_width - (48 * mm)
-
-    pdf.setTitle("Bond Allocation Notice Prototype")
-    pdf.setAuthor("Local Flask PDF Prototype")
-
-    draw_rule(pdf, left_margin, page_height - (19 * mm), right_margin, page_height - (19 * mm), line_width=1.0)
-
-    draw_text(
-        pdf,
-        data["date"],
-        right_margin,
-        page_height - (29 * mm),
-        body_font,
-        10.0,
-        align="right",
-        color=MUTED_TEXT_COLOR,
-    )
-
-    customer_line_y = page_height - (49 * mm)
-    draw_text(
-        pdf,
-        f'{data["customer_name"]}　様',
-        left_margin,
-        customer_line_y,
-        body_font,
-        12.8,
-    )
-    draw_rule(pdf, left_margin, customer_line_y - 2.1 * mm, left_margin + (50 * mm), customer_line_y - 2.1 * mm, line_width=0.7)
-
-    sender_block = (
-        f'{data["address"]}\n'
-        f'{data["company_name"]}\n'
-        f'代表取締役　{data["representative_name"]}'
-    )
-    draw_paragraph(
-        pdf,
-        sender_block,
-        page_width - (86 * mm),
-        page_height - (39 * mm),
-        62 * mm,
-        styles["sender"],
-    )
-
-    title_top_y = page_height - (74 * mm)
-    draw_paragraph(
-        pdf,
-        data["company_name"],
-        left_margin,
-        title_top_y,
-        content_width,
-        styles["title_meta"],
-    )
-    draw_paragraph(
-        pdf,
-        f'{data["bond_title"]}　割当決定通知書',
-        left_margin,
-        title_top_y - (8.5 * mm),
-        content_width,
-        styles["title"],
-    )
-    draw_rule(pdf, left_margin + (28 * mm), page_height - (94 * mm), right_margin - (28 * mm), page_height - (94 * mm), line_width=0.8)
-
-    body_text = (
-        f'拝啓　平素より格別のご高配を賜り、厚く御礼申し上げます。'
-        f'このたびは当社の{data["bond_title"]}へお申込みいただき、誠にありがとうございました。'
-        "申込内容に基づき割当を決定いたしましたので、下記の内容をご確認のうえ、"
-        "払込期日までにお手続きくださいますようお願い申し上げます。"
-    )
-    draw_paragraph(
-        pdf,
-        body_text,
-        left_margin + (4 * mm),
-        page_height - (104 * mm),
-        content_width - (8 * mm),
-        styles["body"],
-    )
-
-    draw_text(
-        pdf,
-        "記",
-        page_width / 2,
-        page_height - (136 * mm),
-        heading_font,
-        12,
-        align="center",
-    )
-
-    table_bottom_y = draw_detail_table(
-        pdf,
-        make_detail_rows(data),
-        left_margin,
-        page_height - (144 * mm),
-        content_width,
-        styles,
-        font_info,
-    )
-
-    note_style = ParagraphStyle(
-        "note",
-        fontName=body_font,
-        fontSize=9.0,
-        leading=13.0,
-        alignment=TA_LEFT,
-        textColor=MUTED_TEXT_COLOR,
-        wordWrap="CJK",
-    )
-    note_text = (
-        "なお、本通知書は払込内容のご案内を目的としたものです。"
-        "ご不明な点がございましたら、発行会社までお問い合わせください。"
-    )
-    note_top_y = table_bottom_y - (7 * mm)
-    _, note_height = draw_paragraph(
-        pdf,
-        note_text,
-        left_margin,
-        note_top_y,
-        content_width,
-        note_style,
-    )
-    note_bottom_y = note_top_y - note_height
-    footer_y = max(8 * mm, min(16 * mm, note_bottom_y - (7 * mm)))
-
-    draw_text(
-        pdf,
-        "以上",
-        right_margin,
-        footer_y,
-        body_font,
-        10.0,
-        align="right",
-    )
-
-    pdf.showPage()
-    pdf.save()
-    return pdf_buffer.getvalue(), font_info
+        ), 200
+    except Exception as exc:
+        return jsonify({"success": False, "message": str(exc)}), 500
 
 
 @app.route("/generate-pdf", methods=["POST", "OPTIONS"])
@@ -895,28 +938,16 @@ def generate_pdf():
     if not isinstance(payload, dict):
         return jsonify({"success": False, "message": "Request body must be valid JSON."}), 400
 
-    missing_fields = validate_payload(payload)
-    if missing_fields:
-        return (
-            jsonify(
-                {
-                    "success": False,
-                    "message": "Missing required fields.",
-                    "missing_fields": missing_fields,
-                }
-            ),
-            400,
-        )
+    try:
+        template_type = requested_template_type(payload)
+        document_data = extract_document_data(payload)
+    except Exception as exc:
+        return jsonify({"success": False, "message": str(exc)}), 400
 
-    runtime_config = resolve_runtime_config(payload)
-    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
-    file_name = f"bond_notice_{timestamp}_{uuid.uuid4().hex[:8]}.pdf"
-    pdf_path = OUTPUT_DIR / file_name
-    pdf_bytes = b""
     local_pdf_path = ""
 
     try:
-        pdf_bytes, font_info = build_pdf(payload)
+        pdf_bytes, template_info, render_context = build_pdf(document_data, template_type)
     except Exception as exc:
         return (
             jsonify(
@@ -924,32 +955,52 @@ def generate_pdf():
                     "success": False,
                     "message": "Failed to generate PDF.",
                     "error": str(exc),
+                    "template_type": template_type,
                 }
             ),
             500,
         )
 
+    file_name = build_pdf_filename(template_info, render_context)
+    pdf_path = OUTPUT_DIR / file_name
+
+    runtime_config = resolve_runtime_config(payload)
     if runtime_config.get("save_local_pdf_copy"):
         ensure_output_dir()
         pdf_path.write_bytes(pdf_bytes)
         local_pdf_path = str(pdf_path)
 
-    monday_requested = parse_bool(payload.get("save_to_monday"), False)
     monday_result = None
     monday_error = None
+    monday_requested = False
 
     try:
         monday_config = resolve_monday_config(payload)
-        monday_requested = monday_requested or monday_config.get("enabled", False)
+        monday_requested = monday_requested_from_payload(payload, monday_config)
     except Exception as exc:
         monday_config = None
-        if monday_requested:
+        if parse_bool(payload.get("save_to_monday"), False):
             monday_error = str(exc)
 
     if monday_requested:
         if monday_error is None:
+            monday_payload = dict(render_context)
+            monday_payload.update(
+                {
+                    "template_type": template_info["template_type"],
+                    "template_label": template_info["template_label"],
+                }
+            )
+            if isinstance(payload.get("monday"), dict):
+                monday_payload["monday"] = payload["monday"]
+
             try:
-                monday_result = upload_to_monday(pdf_bytes, file_name, payload, local_pdf_path=local_pdf_path)
+                monday_result = upload_to_monday(
+                    pdf_bytes,
+                    file_name,
+                    monday_payload,
+                    local_pdf_path=local_pdf_path,
+                )
             except Exception as exc:
                 monday_error = str(exc)
 
@@ -961,10 +1012,11 @@ def generate_pdf():
                 "file_path": local_pdf_path or None,
                 "generated_filename": file_name,
                 "saved_locally": bool(local_pdf_path),
-                "heading_font": font_info["heading_font"],
-                "body_font": font_info["body_font"],
-                "font_mode": font_info["font_mode"],
-                "font_source": font_info["font_source"],
+                "template_type": template_info["template_type"],
+                "template_label": template_info["template_label"],
+                "template_file": template_info["template_file"],
+                "template_fields": template_info["template_fields"],
+                "empty_fields": template_info["empty_fields"],
                 "monday_requested": monday_requested,
                 "monday_result": monday_result,
                 "monday_error": monday_error,
@@ -1025,6 +1077,8 @@ def config_defaults():
             jsonify(
                 {
                     "success": True,
+                    "default_template_type": DEFAULT_TEMPLATE_TYPE,
+                    "templates": template_catalog(),
                     "monday": {
                         "enabled": config.get("enabled", False),
                         "board_id": config.get("board_id", ""),
@@ -1052,10 +1106,6 @@ def output_file(filename: str):
 
 if __name__ == "__main__":
     ensure_output_dir()
-    # This keeps the app close to a future serverless deployment:
-    # - Local run: python app.py
-    # - Cloud Run: gunicorn app:app
-    # - Cloud Functions 2nd gen: adapt the same logic to an HTTP entrypoint
     app.run(
         host="0.0.0.0",
         port=int(os.getenv("PORT", "5000")),

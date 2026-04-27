@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>普通社債利息通知書 兼 計算書</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-monthly-interest-page,
+  .gls-monthly-interest-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-monthly-interest-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 12mm 13mm 10mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+    font-size: 12.2px;
+    line-height: 1.38;
+  }
+
+  .gls-mi-created-date {
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 4mm;
+  }
+
+  .gls-mi-title {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    line-height: 1.28;
+    margin: 0 0 8mm;
+  }
+
+  .gls-mi-header {
+    display: grid;
+    grid-template-columns: 1fr 82mm;
+    column-gap: 12mm;
+    align-items: start;
+    margin-bottom: 9mm;
+  }
+
+  .gls-mi-recipient {
+    padding-top: 5mm;
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+
+  .gls-mi-recipient-line {
+    display: inline-block;
+    min-width: 58mm;
+    border-bottom: 1px solid #111;
+    padding-bottom: 1.5mm;
+    text-align: center;
+  }
+
+  .gls-mi-company {
+    font-size: 10.8px;
+    font-weight: 700;
+    line-height: 1.35;
+  }
+
+  .gls-mi-message {
+    font-size: 12.6px;
+    font-weight: 700;
+    margin: 0 0 4mm;
+  }
+
+  .gls-mi-main-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 2px solid #111;
+  }
+
+  .gls-mi-main-table th,
+  .gls-mi-main-table td {
+    border: 1px solid #111;
+    padding: 1.45mm 2mm;
+    vertical-align: middle;
+    font-weight: 700;
+  }
+
+  .gls-mi-main-table th {
+    background: #ead5df;
+    text-align: center;
+    font-size: 12.2px;
+  }
+
+  .gls-mi-date-col {
+    width: 38mm;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .gls-mi-amount-col {
+    width: 40mm;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .gls-mi-content {
+    white-space: nowrap;
+    font-size: 12px;
+  }
+
+  .gls-mi-breakdown {
+    font-weight: 700;
+    padding-left: 4mm !important;
+  }
+
+  .gls-mi-summary-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: 7mm;
+  }
+
+  .gls-mi-summary-table td {
+    border: 1px solid #111;
+    padding: 1.45mm 2mm;
+    font-weight: 700;
+    vertical-align: middle;
+  }
+
+  .gls-mi-summary-spacer {
+    width: 38mm;
+    border: 0 !important;
+    padding: 0 !important;
+  }
+
+  .gls-mi-summary-label {
+    text-align: right;
+    border-left: 2px solid #111 !important;
+  }
+
+  .gls-mi-summary-amount {
+    width: 40mm;
+    text-align: right;
+    white-space: nowrap;
+    border-right: 2px solid #111 !important;
+  }
+
+  .gls-mi-summary-table tr:last-child .gls-mi-summary-label,
+  .gls-mi-summary-table tr:last-child .gls-mi-summary-amount {
+    border-bottom: 2px solid #111 !important;
+  }
+
+  .gls-mi-box {
+    border: 2px solid #111;
+    padding: 2.2mm 3mm;
+    margin-bottom: 5mm;
+    font-size: 11.6px;
+    font-weight: 700;
+    line-height: 1.38;
+  }
+
+  .gls-mi-contact-box {
+    min-height: 24mm;
+  }
+
+  .gls-mi-bank-box {
+    min-height: 14mm;
+  }
+
+  .gls-mi-box-title {
+    margin-bottom: 1.8mm;
+  }
+
+  .gls-mi-bank-line {
+    margin-top: 2.6mm;
+  }
+
+  @media print {
+    .gls-monthly-interest-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-monthly-interest-page">
+  <div class="gls-mi-created-date">
+    作成日　{{ created_date }}
+  </div>
+
+  <h1 class="gls-mi-title">
+    普通社債利息通知書 兼 計算書
+  </h1>
+
+  <section class="gls-mi-header">
+    <div class="gls-mi-recipient">
+      <span class="gls-mi-recipient-line">{{ recipient_name }}</span>　様
+    </div>
+
+    <div class="gls-mi-company">
+      {{ issuer_company_name }}<br />
+      【本社】〒{{ head_office_zip }}<br />
+      {{ head_office_address }}<br />
+      【東京支社】〒{{ tokyo_branch_zip }}<br />
+      {{ tokyo_branch_address }}<br />
+      代表取締役　{{ representative_name }}<br />
+      TEL：{{ tel }}　　FAX：{{ fax }}<br />
+      登録番号：{{ registration_number }}
+    </div>
+  </section>
+
+  <div class="gls-mi-message">
+    下記の通り、ご通知申し上げます。
+  </div>
+
+  <table class="gls-mi-main-table">
+    <colgroup>
+      <col class="gls-mi-date-col" />
+      <col />
+      <col class="gls-mi-amount-col" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="gls-mi-date-col">日付</th>
+        <th>内容</th>
+        <th class="gls-mi-amount-col">金額</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="gls-mi-date-col">{{ principal_date }}</td>
+        <td class="gls-mi-content">{{ principal_description }}</td>
+        <td class="gls-mi-amount-col">{{ principal_amount }}</td>
+      </tr>
+      <tr>
+        <td class="gls-mi-date-col">{{ interest_date }}</td>
+        <td class="gls-mi-content">{{ interest_description }}</td>
+        <td class="gls-mi-amount-col">{{ interest_amount }}</td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td></td>
+        <td></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="gls-mi-breakdown">【内訳】</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="gls-mi-content">{{ calculation_detail }}</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table class="gls-mi-summary-table">
+    <colgroup>
+      <col class="gls-mi-summary-spacer" />
+      <col />
+      <col class="gls-mi-summary-amount" />
+    </colgroup>
+    <tr>
+      <td class="gls-mi-summary-spacer"></td>
+      <td class="gls-mi-summary-label">計</td>
+      <td class="gls-mi-summary-amount">{{ total_amount }}</td>
+    </tr>
+    <tr>
+      <td class="gls-mi-summary-spacer"></td>
+      <td class="gls-mi-summary-label">源泉所得税（15.315%）</td>
+      <td class="gls-mi-summary-amount">{{ income_tax }}</td>
+    </tr>
+    <tr>
+      <td class="gls-mi-summary-spacer"></td>
+      <td class="gls-mi-summary-label">住民税（5%）</td>
+      <td class="gls-mi-summary-amount">{{ resident_tax }}</td>
+    </tr>
+    <tr>
+      <td class="gls-mi-summary-spacer"></td>
+      <td class="gls-mi-summary-label">差引額</td>
+      <td class="gls-mi-summary-amount">{{ net_payment_amount }}</td>
+    </tr>
+    <tr>
+      <td class="gls-mi-summary-spacer"></td>
+      <td class="gls-mi-summary-label">利金の毎月支払い分（税引後）</td>
+      <td class="gls-mi-summary-amount">{{ monthly_interest_after_tax }}</td>
+    </tr>
+  </table>
+
+  <section class="gls-mi-box gls-mi-contact-box">
+    <div class="gls-mi-box-title">≪ご連絡事項≫</div>
+    <div>こちらの社債は、毎月末日(銀行休業日の場合は前営業日)が利払日となっており、</div>
+    <div>利率を12回に分割した金額(1か月分の利息)のみをお支払いいたします。</div>
+    <div>端数が生じる関係で、最後の月のみ929,662円の利金となります。</div>
+    <div>なお、元金のご返済は償還期日である2027年4月23日に一括して行います。</div>
+  </section>
+
+  <section class="gls-mi-box gls-mi-bank-box">
+    <div class="gls-mi-box-title">≪お振込指定≫</div>
+    <div class="gls-mi-bank-line">・ご指定口座</div>
+  </section>
+</section>
+</body>
+</html>

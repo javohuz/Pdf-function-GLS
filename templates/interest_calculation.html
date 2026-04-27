@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>普通社債利息通知書 兼 計算書</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-interest-page,
+  .gls-interest-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-interest-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 16mm 20mm 15mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+    font-size: 12.2px;
+    line-height: 1.4;
+  }
+
+  .gls-interest-date {
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    margin-bottom: 6mm;
+  }
+
+  .gls-interest-title {
+    text-align: center;
+    font-size: 21px;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    line-height: 1.3;
+    margin-bottom: 12mm;
+  }
+
+  .gls-interest-header {
+    display: grid;
+    grid-template-columns: 1fr 82mm;
+    gap: 13mm;
+    align-items: start;
+    margin-bottom: 13mm;
+  }
+
+  .gls-interest-recipient {
+    padding-top: 6mm;
+    font-size: 13.5px;
+    font-weight: 700;
+  }
+
+  .gls-interest-recipient-line {
+    display: inline-block;
+    min-width: 54mm;
+    border-bottom: 1px solid #111;
+    padding: 0 2mm 1.5mm;
+  }
+
+  .gls-interest-company {
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.42;
+  }
+
+  .gls-interest-message {
+    font-size: 12.8px;
+    font-weight: 700;
+    margin: 0 0 5mm;
+  }
+
+  .gls-interest-main-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    border: 2px solid #111;
+    margin-bottom: 0;
+  }
+
+  .gls-interest-main-table th,
+  .gls-interest-main-table td {
+    border: 1px solid #111;
+    padding: 1.8mm 2.2mm;
+    vertical-align: middle;
+    font-weight: 700;
+  }
+
+  .gls-interest-main-table th {
+    background: #ead5df;
+    text-align: center;
+    font-size: 12.4px;
+  }
+
+  .gls-interest-date-col {
+    width: 38mm;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .gls-interest-amount-col {
+    width: 40mm;
+    text-align: right;
+  }
+
+  .gls-interest-content-col {
+    width: auto;
+  }
+
+  .gls-interest-amount-text {
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .gls-interest-breakdown {
+    font-weight: 700;
+  }
+
+  .gls-interest-summary {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    margin-bottom: 13mm;
+  }
+
+  .gls-interest-summary td {
+    border: 1px solid #111;
+    padding: 1.8mm 2.2mm;
+    font-weight: 700;
+  }
+
+  .gls-interest-summary-spacer {
+    width: 38mm;
+    border: 0 !important;
+    padding: 0 !important;
+  }
+
+  .gls-interest-summary-label {
+    text-align: right;
+    border-left: 2px solid #111 !important;
+  }
+
+  .gls-interest-summary-amount {
+    width: 40mm;
+    text-align: right;
+    white-space: nowrap;
+    border-right: 2px solid #111 !important;
+  }
+
+  .gls-interest-summary tr:last-child .gls-interest-summary-label,
+  .gls-interest-summary tr:last-child .gls-interest-summary-amount {
+    border-bottom: 2px solid #111 !important;
+  }
+
+  .gls-interest-box {
+    border: 2px solid #111;
+    min-height: 20mm;
+    padding: 2.6mm 3mm;
+    margin-bottom: 6mm;
+    font-size: 12.2px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  .gls-interest-box-title {
+    margin-bottom: 2.4mm;
+  }
+
+  .gls-interest-bank-line {
+    margin-top: 2.4mm;
+  }
+
+  @media print {
+    .gls-interest-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-interest-page">
+
+  <div class="gls-interest-date">
+    作成日　{{ created_date }}
+  </div>
+
+  <h1 class="gls-interest-title">
+    普通社債利息通知書 兼 計算書
+  </h1>
+
+  <section class="gls-interest-header">
+    <div class="gls-interest-recipient">
+      <span class="gls-interest-recipient-line">{{ recipient_name }}</span>
+      様
+    </div>
+
+    <div class="gls-interest-company">
+      {{ issuer_company_name }}<br />
+      〒{{ issuer_zip }}<br />
+      {{ issuer_address }}<br />
+      代表取締役　{{ representative_name }}<br />
+      TEL：{{ tel }}　　FAX：{{ fax }}<br />
+      登録番号：{{ registration_number }}
+    </div>
+  </section>
+
+  <div class="gls-interest-message">
+    下記の通り、ご通知申し上げます。
+  </div>
+
+  <table class="gls-interest-main-table">
+    <colgroup>
+      <col class="gls-interest-date-col" />
+      <col class="gls-interest-content-col" />
+      <col class="gls-interest-amount-col" />
+    </colgroup>
+    <thead>
+      <tr>
+        <th class="gls-interest-date-col">日付</th>
+        <th class="gls-interest-content-col">内容</th>
+        <th class="gls-interest-amount-col">金額</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="gls-interest-date-col">{{ principal_date }}</td>
+        <td>{{ principal_description }}</td>
+        <td class="gls-interest-amount-text">{{ principal_amount }}</td>
+      </tr>
+      <tr>
+        <td class="gls-interest-date-col">{{ interest_date }}</td>
+        <td>{{ interest_description }}</td>
+        <td class="gls-interest-amount-text">{{ interest_amount }}</td>
+      </tr>
+      <tr>
+        <td></td>
+        <td class="gls-interest-breakdown">【内訳】</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td></td>
+        <td>{{ calculation_detail }}</td>
+        <td></td>
+      </tr>
+      <tr>
+        <td>&nbsp;</td>
+        <td></td>
+        <td></td>
+      </tr>
+    </tbody>
+  </table>
+
+  <table class="gls-interest-summary">
+    <colgroup>
+      <col class="gls-interest-summary-spacer" />
+      <col />
+      <col class="gls-interest-summary-amount" />
+    </colgroup>
+    <tr>
+      <td class="gls-interest-summary-spacer"></td>
+      <td class="gls-interest-summary-label">計</td>
+      <td class="gls-interest-summary-amount">{{ total_amount }}</td>
+    </tr>
+    <tr>
+      <td class="gls-interest-summary-spacer"></td>
+      <td class="gls-interest-summary-label">源泉所得税（15.315%）</td>
+      <td class="gls-interest-summary-amount">{{ income_tax }}</td>
+    </tr>
+    <tr>
+      <td class="gls-interest-summary-spacer"></td>
+      <td class="gls-interest-summary-label">住民税（5%）</td>
+      <td class="gls-interest-summary-amount">{{ resident_tax }}</td>
+    </tr>
+    <tr>
+      <td class="gls-interest-summary-spacer"></td>
+      <td class="gls-interest-summary-label">差引額</td>
+      <td class="gls-interest-summary-amount">{{ net_payment_amount }}</td>
+    </tr>
+  </table>
+
+  <section class="gls-interest-box">
+    <div class="gls-interest-box-title">≪ご連絡事項≫</div>
+  </section>
+
+  <section class="gls-interest-box">
+    <div class="gls-interest-box-title">≪お振込指定≫</div>
+    <div class="gls-interest-bank-line">・ご指定口座</div>
+  </section>
+
+</section>
+</body>
+</html>

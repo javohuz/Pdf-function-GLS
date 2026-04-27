@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>社債要項</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-lt-page,
+  .gls-lt-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-lt-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 11mm 13mm 12mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+    page-break-after: always;
+  }
+
+  .gls-lt-page:last-child {
+    page-break-after: auto;
+  }
+
+  .gls-lt-title {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.35;
+    margin: 0 0 7mm;
+    letter-spacing: 0.02em;
+  }
+
+  .gls-lt-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+    font-size: 13.7px;
+    line-height: 1.46;
+  }
+
+  .gls-lt-table td {
+    border: 1.15px solid #111;
+    vertical-align: middle;
+    padding: 1.05mm 2mm;
+  }
+
+  .gls-lt-no {
+    width: 9mm;
+    text-align: center;
+    font-size: 13.2px;
+  }
+
+  .gls-lt-label {
+    width: 53mm;
+    font-size: 13.8px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .gls-lt-value {
+    width: auto;
+    font-size: 13.2px;
+    font-weight: 500;
+  }
+
+  .gls-lt-strong {
+    font-weight: 700;
+  }
+
+  .gls-lt-dyn {
+    padding: 0 1mm;
+  }
+
+  .gls-lt-long td {
+    vertical-align: middle;
+  }
+
+  .gls-lt-long-text {
+    font-size: 12.9px;
+    line-height: 1.42;
+    padding-top: 0.9mm !important;
+    padding-bottom: 0.9mm !important;
+  }
+
+  .gls-lt-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .gls-lt-list li {
+    display: grid;
+    grid-template-columns: 8mm 1fr;
+    margin-bottom: 0.55mm;
+  }
+
+  .gls-lt-list li:last-child {
+    margin-bottom: 0;
+  }
+
+  .gls-lt-list-no {
+    text-align: center;
+  }
+
+  .gls-lt-bank {
+    line-height: 1.55;
+  }
+
+  .gls-lt-end {
+    text-align: right;
+    font-size: 15px;
+    margin-top: 12mm;
+  }
+
+  @media print {
+    .gls-lt-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-lt-page">
+  <h1 class="gls-lt-title">
+    {{ issuer_company_name }}第<span class="gls-lt-dyn">{{ bond_number }}</span>回普通社債<br />
+    社債要項
+  </h1>
+
+  <table class="gls-lt-table">
+    <tr>
+      <td class="gls-lt-no">1</td>
+      <td class="gls-lt-label">会社の商号</td>
+      <td class="gls-lt-value gls-lt-strong">{{ issuer_company_name }}</td>
+    </tr>
+    <tr>
+      <td class="gls-lt-no">2</td>
+      <td class="gls-lt-label">社債の総額</td>
+      <td class="gls-lt-value gls-lt-strong"><span class="gls-lt-dyn">{{ total_bond_amount }}</span></td>
+    </tr>
+    <tr>
+      <td class="gls-lt-no">3</td>
+      <td class="gls-lt-label">各社債の金額</td>
+      <td class="gls-lt-value gls-lt-strong"><span class="gls-lt-dyn">{{ bond_unit_amount }}</span></td>
+    </tr>
+    <tr>
+      <td class="gls-lt-no">4</td>
+      <td class="gls-lt-label">利率</td>
+      <td class="gls-lt-value gls-lt-strong"><span class="gls-lt-dyn">{{ interest_rate }}</span></td>
+    </tr>
+    <tr>
+      <td class="gls-lt-no">5</td>
+      <td class="gls-lt-label">払込金額</td>
+      <td class="gls-lt-value">額面100円につき100円</td>
+    </tr>
+    <tr>
+      <td class="gls-lt-no">6</td>
+      <td class="gls-lt-label">償還金額</td>
+      <td class="gls-lt-value">額面100円につき100円</td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">7</td>
+      <td class="gls-lt-label">償還の方法及び期限</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        <ul class="gls-lt-list">
+          <li><span class="gls-lt-list-no">1</span><span><span class="gls-lt-dyn">{{ redemption_date }}</span>に本社債の総額を償還する。</span></li>
+          <li><span class="gls-lt-list-no">2</span><span>当社は、本社債の全部又は一部を繰上償還及び買入消却することができる。</span></li>
+          <li><span class="gls-lt-list-no">3</span><span>本社債の償還をなすべき日（以下「償還期日」という。）が銀行休業日にあたるときは、その前営業日にこれを繰り上げる。</span></li>
+          <li><span class="gls-lt-list-no">4</span><span>本社債の償還は、社債権者が指定する預金口座への送金により行う。</span></li>
+        </ul>
+      </td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">8</td>
+      <td class="gls-lt-label">利息支払の方法及び期限</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        <ul class="gls-lt-list">
+          <li><span class="gls-lt-list-no">1</span><span>本社債の利息は、払込期日の翌日（同日を含む。）から償還期日（同日を含む。）までこれを付し、償還期日にその全額を支払う。</span></li>
+          <li><span class="gls-lt-list-no">2</span><span>1年に満たない期間につき利息を計算するときは、1年を365日とする日割をもってこれを計算する。</span></li>
+          <li><span class="gls-lt-list-no">3</span><span>償還期日後は利息を付さない。</span></li>
+          <li><span class="gls-lt-list-no">4</span><span>利払日が銀行休業日にあたるときは、その前銀行営業日にこれを繰り上げる。</span></li>
+          <li><span class="gls-lt-list-no">5</span><span>利息の支払は、社債権者が指定する預金口座への送金により行う。</span></li>
+        </ul>
+      </td>
+    </tr>
+
+    <tr>
+      <td class="gls-lt-no">9</td>
+      <td class="gls-lt-label">社債券の発行</td>
+      <td class="gls-lt-value">本社債は社債券を発行しない。</td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">10</td>
+      <td class="gls-lt-label">期限の利益喪失</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        当社は、次のいずれかの事由が発生した場合には、本社債の全てにつき期限の利益を喪失する。
+        <ul class="gls-lt-list">
+          <li><span class="gls-lt-list-no">1</span><span>当社が第7項（償還の方法及び期限）又は第8項（利息支払いの方法及び期限）の規定に違背し、5銀行営業日以内に履行又は治癒されないとき。</span></li>
+          <li><span class="gls-lt-list-no">2</span><span>当社が事業を廃止したとき、又は当社が解散（合併の場合を除く。）の決議を行い又は解散命令若しくは解散判決を受けたとき。</span></li>
+          <li><span class="gls-lt-list-no">3</span><span>当社が、その資産に関して差押、保全差押、競売の申立て若しくは公租公課等の滞納処分を受けたとき。</span></li>
+          <li><span class="gls-lt-list-no">4</span><span>当社が、当社の破産手続開始、民事再生手続開始、会社更生手続開始若しくは特別清算開始の申立てをし、又は、これらの手続開始の決定又は特別清算開始の命令を受けたとき。</span></li>
+          <li><span class="gls-lt-list-no">5</span><span>当社につき支払の停止があったとき、当社が支払不能の状態に陥ったとき、又は当社が手形交換所の取引停止処分若しくは銀行取引停止処分その他これに</span></li>
+        </ul>
+      </td>
+    </tr>
+  </table>
+</section>
+
+<section class="gls-lt-page">
+  <table class="gls-lt-table">
+    <tr>
+      <td class="gls-lt-no"></td>
+      <td class="gls-lt-label"></td>
+      <td class="gls-lt-value gls-lt-long-text">類する処分を受けたとき。</td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">11</td>
+      <td class="gls-lt-label">遅延損害金</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        当社が本社債の償還を行うべき日又は期限の利益を喪失した日に償還しなかった場合、その未払金額については、当該日の翌日から支払完了の日まで本社債の利息と同じ割合による遅延損害金を社債権者に対して支払う。
+      </td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">12</td>
+      <td class="gls-lt-label">社債管理者の不設置</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        本社債は、会社法第702条ただし書及び会社法施行規則第169条の要件を充たすものであり、本社債の管理を行う社債管理者は設置しない。
+      </td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">13</td>
+      <td class="gls-lt-label">譲渡制限</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        <ul class="gls-lt-list">
+          <li><span class="gls-lt-list-no">1</span><span>社債権者は、当社の代表取締役の承認を受けなければ、その所有する本社債の第三者への譲渡又は質入れ等（その他一切の担保設定含む。）をすることはできない。</span></li>
+          <li><span class="gls-lt-list-no">2</span><span>本社債は、第3項に規定する各社債の金額未満に分割できないものとする。</span></li>
+        </ul>
+      </td>
+    </tr>
+
+    <tr class="gls-lt-long">
+      <td class="gls-lt-no">14</td>
+      <td class="gls-lt-label">告知事項</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        <ul class="gls-lt-list">
+          <li><span class="gls-lt-list-no">1</span><span>本社債取得の申込みの勧誘は、金融商品取引法第2条第3項第2号ハに該当することにより、当該取得の申込みの勧誘に関し同法第4条第1項の規定による届出が行われていない。</span></li>
+          <li><span class="gls-lt-list-no">2</span><span>社債権者が本社債を譲渡する場合は、本社債に関して、その売付の申込み又は買付けの申込みの勧誘が金融商品取引法第2条第4項第2号ハに該当することにより、当該売付の申込み又は買付けの申込みの勧誘に関し同法第4条第1項の規定による届出が行われていない旨、及び、本社債が各社債の金額未満に分割できない旨について、あらかじめ又は同時にその相手方に対し書面をもって告知するものとする。</span></li>
+        </ul>
+      </td>
+    </tr>
+
+    <tr>
+      <td class="gls-lt-no">15</td>
+      <td class="gls-lt-label">連帯保証</td>
+      <td class="gls-lt-value gls-lt-long-text">
+        {{ joint_guarantee_text }}
+      </td>
+    </tr>
+
+    <tr>
+      <td class="gls-lt-no">16</td>
+      <td class="gls-lt-label">払込期日</td>
+      <td class="gls-lt-value gls-lt-strong">
+        <span class="gls-lt-dyn">{{ payment_deadline }}</span>
+      </td>
+    </tr>
+
+    <tr>
+      <td class="gls-lt-no">17</td>
+      <td class="gls-lt-label">振込銀行口座</td>
+      <td class="gls-lt-value gls-lt-strong gls-lt-bank">
+        <span class="gls-lt-dyn">{{ bank_name }}　{{ branch_name }}　{{ account_type }}</span><br />
+        <span class="gls-lt-dyn">口座番号　{{ account_number }}</span><br />
+        <span class="gls-lt-dyn">{{ account_holder }}</span>
+      </td>
+    </tr>
+  </table>
+
+  <div class="gls-lt-end">以上</div>
+</section>
+</body>
+</html>

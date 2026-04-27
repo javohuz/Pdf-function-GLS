@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <title>割当決定通知書 GMO</title>
+  <style>
+  @page {
+    size: A4;
+    margin: 0;
+  }
+
+  .gls-allocation-gmo-page,
+  .gls-allocation-gmo-page * {
+    box-sizing: border-box;
+  }
+
+  .gls-allocation-gmo-page {
+    width: 210mm;
+    min-height: 297mm;
+    margin: 0 auto;
+    padding: 24mm 22mm 22mm;
+    background: #fff;
+    color: #111;
+    font-family: "Yu Mincho", "Hiragino Mincho ProN", "MS Mincho", serif;
+    font-size: 15px;
+    line-height: 1.65;
+    position: relative;
+  }
+
+  .gls-allocation-gmo-date {
+    text-align: right;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 18mm;
+  }
+
+  .gls-allocation-gmo-top {
+    display: grid;
+    grid-template-columns: 1fr 88mm;
+    column-gap: 14mm;
+    align-items: start;
+    margin-bottom: 34mm;
+  }
+
+  .gls-allocation-gmo-recipient {
+    padding-top: 8mm;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  .gls-allocation-gmo-sender {
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.45;
+  }
+
+  .gls-allocation-gmo-title {
+    text-align: center;
+    margin-bottom: 20mm;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+
+  .gls-allocation-gmo-title-main {
+    font-size: 20px;
+    letter-spacing: 0.03em;
+  }
+
+  .gls-allocation-gmo-title-sub {
+    font-size: 21px;
+    letter-spacing: 0.06em;
+  }
+
+  .gls-allocation-gmo-body {
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.9;
+    margin-bottom: 13mm;
+  }
+
+  .gls-allocation-gmo-mark {
+    text-align: center;
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 10mm;
+  }
+
+  .gls-allocation-gmo-details {
+    width: 128mm;
+    margin: 0 auto;
+    font-size: 16px;
+    font-weight: 700;
+    line-height: 1.75;
+  }
+
+  .gls-allocation-gmo-row {
+    display: grid;
+    grid-template-columns: 40mm 1fr;
+    column-gap: 4mm;
+    margin-bottom: 1mm;
+  }
+
+  .gls-allocation-gmo-label-wrap {
+    white-space: nowrap;
+  }
+
+  .gls-allocation-gmo-label {
+    display: inline-block;
+    min-width: 30mm;
+  }
+
+  .gls-allocation-gmo-colon {
+    display: inline-block;
+    margin-left: 2mm;
+  }
+
+  .gls-allocation-gmo-bank {
+    line-height: 1.7;
+  }
+
+  .gls-allocation-gmo-end {
+    position: absolute;
+    right: 24mm;
+    bottom: 28mm;
+    font-size: 17px;
+    font-weight: 700;
+  }
+
+  @media print {
+    .gls-allocation-gmo-page {
+      margin: 0;
+    }
+  }
+</style>
+</head>
+<body>
+
+<section class="gls-allocation-gmo-page">
+  <div class="gls-allocation-gmo-date">
+    {{ notice_date }}
+  </div>
+
+  <section class="gls-allocation-gmo-top">
+    <div class="gls-allocation-gmo-recipient">
+      {{ recipient_name }}　様
+    </div>
+
+    <div class="gls-allocation-gmo-sender">
+      {{ issuer_address }}<br />
+      {{ issuer_company_name }}<br />
+      代表取締役　{{ representative_name }}
+    </div>
+  </section>
+
+  <section class="gls-allocation-gmo-title">
+    <div class="gls-allocation-gmo-title-main">
+      {{ issuer_company_name }}　 第{{ bond_number }}回普通社債
+    </div>
+    <div class="gls-allocation-gmo-title-sub">
+      割当決定通知書
+    </div>
+  </section>
+
+  <section class="gls-allocation-gmo-body">
+    当社の第{{ bond_number }}回普通社債に申込みいただきありがとうございました。<br />
+    申込書に記載の額面のとおり割当を決定いたしましたので、下記のとおり払込をお願いいたします。
+  </section>
+
+  <div class="gls-allocation-gmo-mark">記</div>
+
+  <section class="gls-allocation-gmo-details">
+    <div class="gls-allocation-gmo-row">
+      <div class="gls-allocation-gmo-label-wrap">
+        <span class="gls-allocation-gmo-label">割当口数</span><span class="gls-allocation-gmo-colon">：</span>
+      </div>
+      <div>{{ allocated_amount }}（{{ allocated_unit_count }}口）</div>
+    </div>
+
+    <div class="gls-allocation-gmo-row">
+      <div class="gls-allocation-gmo-label-wrap">
+        <span class="gls-allocation-gmo-label">払込期日</span><span class="gls-allocation-gmo-colon">：</span>
+      </div>
+      <div>{{ payment_deadline }}</div>
+    </div>
+
+    <div class="gls-allocation-gmo-row">
+      <div class="gls-allocation-gmo-label-wrap">
+        <span class="gls-allocation-gmo-label">払込金融機関</span><span class="gls-allocation-gmo-colon">：</span>
+      </div>
+      <div class="gls-allocation-gmo-bank">
+        {{ bank_name }}　{{ branch_name }}<br />
+        {{ account_type }}　口座番号　{{ account_number }}<br />
+        {{ account_holder }}
+      </div>
+    </div>
+  </section>
+
+  <div class="gls-allocation-gmo-end">以上</div>
+</section>
+</body>
+</html>
