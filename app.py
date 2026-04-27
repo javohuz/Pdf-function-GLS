@@ -876,7 +876,8 @@ def html_to_pdf_bytes(html_content: str) -> bytes:
             "Install Python dependencies with pip install -r requirements.txt. "
             "Native rendering libraries are also required: use brew install pango on macOS, "
             "or deploy Cloud Run with the included Dockerfile so Debian packages such as "
-            "libpango-1.0-0, libpangoft2-1.0-0, libharfbuzz-subset0, and fonts-noto-cjk are installed."
+            "libpango-1.0-0, libpangocairo-1.0-0, libpangoft2-1.0-0, "
+            f"libharfbuzz-subset0, and fonts-noto-cjk are installed. Underlying import error: {exc!r}"
         ) from exc
 
     return HTML(string=html_content, base_url=str(BASE_DIR)).write_pdf()
@@ -919,12 +920,27 @@ def health_check():
     if request.method == "OPTIONS":
         return make_response("", 204)
 
+    weasyprint_available = True
+    weasyprint_error = ""
+    weasyprint_version = ""
+
+    try:
+        import weasyprint
+
+        weasyprint_version = getattr(weasyprint, "__version__", "")
+    except Exception as exc:
+        weasyprint_available = False
+        weasyprint_error = repr(exc)
+
     return jsonify(
         {
             "success": True,
             "message": "GLS PDF backend is running.",
             "template_count": len(PDF_TEMPLATE_REGISTRY),
             "templates_dir_exists": TEMPLATE_DIR.exists(),
+            "weasyprint_available": weasyprint_available,
+            "weasyprint_version": weasyprint_version,
+            "weasyprint_error": weasyprint_error,
         }
     ), 200
 

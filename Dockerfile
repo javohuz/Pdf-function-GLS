@@ -11,6 +11,7 @@ RUN apt-get update \
         fontconfig \
         fonts-noto-cjk \
         libpango-1.0-0 \
+        libpangocairo-1.0-0 \
         libpangoft2-1.0-0 \
         libharfbuzz0b \
         libharfbuzz-subset0 \
