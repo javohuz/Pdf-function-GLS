@@ -912,6 +912,21 @@ def monday_requested_from_payload(payload: Dict, config: Dict) -> bool:
     return bool(config.get("enabled", False))
 
 
+@app.route("/health", methods=["GET", "OPTIONS"])
+def health_check():
+    if request.method == "OPTIONS":
+        return make_response("", 204)
+
+    return jsonify(
+        {
+            "success": True,
+            "message": "GLS PDF backend is running.",
+            "template_count": len(PDF_TEMPLATE_REGISTRY),
+            "templates_dir_exists": TEMPLATE_DIR.exists(),
+        }
+    ), 200
+
+
 @app.route("/templates", methods=["GET", "OPTIONS"])
 def list_templates():
     if request.method == "OPTIONS":

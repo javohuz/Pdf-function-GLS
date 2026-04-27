@@ -507,6 +507,44 @@
         console.groupEnd();
       }
 
+      function logBackendResponse(method, url, response, data, rawText) {
+        console.groupCollapsed(`[GLS PDF Tester] ${method} ${url} -> ${response.status}`);
+        console.log("OK:", response.ok);
+        console.log("Status:", response.status, response.statusText);
+        console.log("Response JSON:", data);
+        if (rawText && data && data.raw_response) {
+          console.log("Raw response:", rawText);
+        }
+        console.groupEnd();
+      }
+
+      function logBackendError(method, url, error) {
+        console.groupCollapsed(`[GLS PDF Tester] ${method} ${url} failed`);
+        console.error(error);
+        console.log("If this says Failed to fetch, check the browser Network tab for CORS, mixed content, DNS, or Cloud Run authentication errors.");
+        console.groupEnd();
+      }
+
+      async function readJsonResponse(response) {
+        const rawText = await response.text();
+        if (!rawText.trim()) {
+          return [{}, rawText];
+        }
+
+        try {
+          return [JSON.parse(rawText), rawText];
+        } catch (error) {
+          return [
+            {
+              success: false,
+              message: "Backend returned a non-JSON response.",
+              raw_response: rawText.slice(0, 1000)
+            },
+            rawText
+          ];
+        }
+      }
+
       function currentTemplate() {
         return templates.find((template) => template.type === templateSelect.value) || templates[0];
       }
@@ -634,12 +672,15 @@
       }
 
       async function loadBackendDefaults() {
+        const method = "GET";
+        const url = buildApiUrl("/config/defaults");
+
         try {
-          const url = buildApiUrl("/config/defaults");
-          logBackendRequest("GET", url);
+          logBackendRequest(method, url);
 
           const response = await fetch(url);
-          const data = await response.json();
+          const [data, rawText] = await readJsonResponse(response);
+          logBackendResponse(method, url, response, data, rawText);
 
           if (!response.ok || !data.success) {
             throw new Error(data.message || "Failed to load backend defaults.");
@@ -650,6 +691,7 @@
           renderDynamicFields();
           renderBackendStatus(data);
         } catch (error) {
+          logBackendError(method, url, error);
           backendStatus.innerHTML = `
             <div class="status-row">
               <div>
@@ -681,9 +723,10 @@
         setStatus("Generating PDF...");
 
         try {
+          const method = "POST";
           const url = buildApiUrl("/generate-pdf");
           const payload = buildPayload();
-          logBackendRequest("POST", url, payload);
+          logBackendRequest(method, url, payload);
 
           const response = await fetch(url, {
             method: "POST",
@@ -691,7 +734,8 @@
             body: JSON.stringify(payload)
           });
 
-          const data = await response.json();
+          const [data, rawText] = await readJsonResponse(response);
+          logBackendResponse(method, url, response, data, rawText);
 
           if (!response.ok) {
             throw new Error(data.error || data.message || `Request failed with status ${response.status}`);
@@ -708,6 +752,7 @@
             setStatus("PDF created", "ok");
           }
         } catch (error) {
+          logBackendError("POST", buildApiUrl("/generate-pdf"), error);
           setStatus("Request failed", "warn");
           setResponse({ success: false, message: error.message });
           renderLinks(null);
