@@ -1,0 +1,32 @@
+{
+  "boards": {
+    "5095195874": {
+      "enabled": true,
+      "document_type": "terms_two_page",
+      "template_type": "terms_two_page",
+      "output_format": "docx",
+      "file_name_template": "${item_name}-${bond_number}",
+      "match_mode": "column_name",
+      "monday": {
+        "file_column_id": "file_mm2qgmt1",
+        "status_column_id": "color_mm34cpyx",
+        "result_message_column_id": ""
+      },
+      "column_name_rules": {
+        "normalize_case": true,
+        "trim_spaces": true
+      },
+      "overrides": {},
+      "defaults": {},
+      "upload": {
+        "upload_generated_file": true,
+        "replace_existing_file": true
+      },
+      "status_labels": {
+        "processing_label": "Generating",
+        "success_label": "Done",
+        "error_label": "Error"
+      }
+    }
+  }
+}

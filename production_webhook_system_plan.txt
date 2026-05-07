@@ -11,14 +11,13 @@ Main production flow
 2. Backend verifies and parses the webhook payload.
 3. Backend reads board_id and pulseId/item_id from the webhook event.
 4. Backend finds the board configuration from a local JSON config file.
-5. Backend checks whether the webhook really means "generate file".
-6. Backend fetches the full monday row data for that item. (when you mean full data only that row datas full speed also imortant)
-7. Backend converts monday column values into document variables using the board configuration.
-8. Backend applies defaults and derived values.
-9. Backend generates the file using the configured template and output format.
-10. Backend uploads the generated file to the correct monday Files column for that board.
-11. Backend updates the monday status/result columns.
-12. Backend returns success to monday.
+5. Backend fetches the full monday row data for that item only.
+6. Backend converts monday column values into document variables using the board configuration.
+7. Backend applies defaults and derived values.
+8. Backend generates the file using the configured template and output format.
+9. Backend uploads the generated file to the correct monday Files column for that board.
+10. Backend updates the monday status/result columns.
+11. Backend returns success to monday.
 
 Recommended endpoint design
 - Keep the current generation code, but add a new production endpoint:
@@ -38,57 +37,70 @@ Production board routing design
   board_document_config.json
 - Each board_id maps to one document setup.
 - This makes the system easy to update without changing Python logic every time.
+- The config should stay simple and clean so it can be updated by hand later.
 
 Suggested config structure
 {
   "boards": {
     "5095195874": {
       "enabled": true,
+      "document_type": "terms_two_page",
       "template_type": "terms_two_page",
       "output_format": "docx",
-      "trigger": {
-        "column_id": "color_mm34cpyx",
-        "generate_label": "Generate file",
-        "generate_index": 0
-      },
-      "upload": {
-        "file_column_id": "file_mm2qgmt1"
-      },
-      "status_updates": {
+      "file_name_template": "${item_name}-${bond_number}",
+      "match_mode": "column_name",
+      "monday": {
+        "file_column_id": "file_mm2qgmt1",
         "status_column_id": "color_mm34cpyx",
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
+        "result_message_column_id": "long_text_result"
       },
-      "source_columns": {
-        "issuer_company_name": "text_col_id_1",
-        "bond_number": "text_col_id_2",
-        "payment_deadline": "date_col_id_1",
-        "bank_name": "text_col_id_3",
-        "branch_name": "text_col_id_4",
-        "account_type": "dropdown_col_id_1",
-        "account_number": "numbers_col_id_1",
-        "account_holder": "text_col_id_5"
+      "column_name_rules": {
+        "normalize_case": true,
+        "trim_spaces": true
+      },
+      "overrides": {
+        "account_holder": "account_name_old"
       },
       "defaults": {
         "issuer_company_name": "グローバル・ロジスティックス・サービス株式会社"
+      },
+      "upload": {
+        "upload_generated_file": true
+      },
+      "status_labels": {
+        "processing_label": "Generating",
+        "success_label": "Set file",
+        "error_label": "Error"
       }
     }
   }
 }
 
 Config rules
-- Use monday column IDs as the real mapping keys, not only visible column titles.
-- Column titles can change in monday, but column IDs are more stable.
+- Keep the JSON flat and human-readable.
+- Put one board per block.
+- Use the same names in both places:
+  - monday column name
+  - template variable / .docx placeholder
+- That means a monday column named issuer_company_name matches {{ issuer_company_name }} automatically.
+- Put fixed fallback values under defaults.
+- Put only special exceptions under overrides.
+- Put monday upload/status settings in their own small sections.
+- For this design, the visible monday column names should stay stable and machine-friendly.
+- Recommended style for column names:
+  - issuer_company_name
+  - bond_number
+  - payment_deadline
 - If needed, we can also keep a human-readable note field in the config for easier maintenance.
 - Status labels are safer if stored by index as well as text.
 
 How file type is decided
 - board_id from the webhook decides everything:
-  - template_type
+  - document_type / template_type
   - output_format
-  - trigger column and trigger status
-  - source column mapping
+  - file_name_template
+  - column-name matching mode
+  - optional overrides
   - defaults
   - upload file column
   - success/error status update behavior
@@ -97,7 +109,9 @@ How monday data is fetched
 - Use the webhook event values:
   - boardId
   - pulseId
-- Then query monday for that item's current column values.
+- Then query monday for that single item's current column values.
+- Do not fetch all board rows.
+- For speed, only load the changed row identified by pulseId/item_id.
 - Fetch:
   - item id
   - item name
@@ -108,14 +122,16 @@ How monday data is fetched
   - column_values.type
   - column.title
 - After that, build one normalized row dictionary in Python.
+- This means "full row data" only for that one target item, not the whole board.
 
 Recommended internal normalization flow
 1. Load raw monday row data.
-2. Convert row data into a simple dictionary by column_id.
-3. Apply the board's source_columns mapping to produce template variables.
-4. Apply defaults from config if a value is empty.
-5. Apply existing derived alias logic if still useful.
-6. Generate the final template context.
+2. Convert row data into a simple dictionary by column name.
+3. Match monday column names directly to template variable names.
+4. Apply overrides only for special cases where names do not match.
+5. Apply defaults from config if a value is empty.
+6. Apply existing derived alias logic if still useful.
+7. Generate the final template context.
 
 Document generation rules
 - PDF:
@@ -124,6 +140,7 @@ Document generation rules
   - use the .docx template for that template_type
 - The backend should not accept free-form template variables from the browser in production.
 - In production, variables should come from monday row data and board config only.
+- If a new field is added later, and the monday column name matches the template variable name, it should work without backend code changes.
 
 What should change in current code
 - Keep:
@@ -149,16 +166,15 @@ Recommended backend steps in the new webhook endpoint
 2. Validate request shape.
 3. Read event.boardId and event.pulseId.
 4. Find board config.
-5. Confirm the webhook came from the expected trigger column.
-6. Confirm the new status value means "Generate file".
-7. If triggerUuid was already processed, return success without regenerating.
-8. Optionally update monday status to "Generating".
-9. Fetch the full row from monday.
-10. Map monday values to template variables.
-11. Generate file.
-12. Upload file to the board's configured Files column.
-13. Update monday status to "Set file" or another success label.
-14. If anything fails, update monday status to "Error" and optionally save the error message in a text column.
+5. If triggerUuid was already processed, return success without regenerating.
+6. Optionally update monday status to "Generating".
+7. Fetch the full row from monday for that one item only.
+8. Map monday values by matching column names to template variable names.
+9. Apply overrides and defaults from board_document_config.json.
+10. Generate file.
+11. Upload file to the board's configured Files column.
+12. Update monday status to "Set file" or another success label.
+13. If anything fails, update monday status to "Error" and optionally save the error message in a text column.
 
 Recommended extra config fields
 - result_message_column_id
@@ -167,8 +183,8 @@ Recommended extra config fields
   - custom file name template per board
 - enabled
   - allow disabling one board without removing it
-- save_local_document_copy
-  - false by default in production
+- Local file saving should stay disabled in production.
+- The service should generate the file in memory and upload it directly to monday.
 
 Recommended result/error behavior
 - On success:
@@ -198,9 +214,8 @@ Recommended implementation order
 
 Small but important production notes
 - Use triggerUuid for idempotency.
-- Use monday column IDs in config, not only names.
-- Use monday status index when possible, not only status text.
-- Save files locally only if explicitly enabled.
+- Use stable monday column names for document variables.
+- Do not save generated files locally in production.
 - In Cloud Run, keep monday token in Secret Manager, not in JSON files.
 
 Proposed final system design summary
@@ -211,7 +226,7 @@ Proposed final system design summary
 - Data source:
   monday row values fetched by pulseId/item_id
 - Mapping:
-  board source_columns + defaults
+  monday column names -> template variable names, plus optional overrides + defaults
 - Renderer:
   PDF HTML template or DOCX template
 - Output:

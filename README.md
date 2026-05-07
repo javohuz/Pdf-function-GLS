@@ -1,22 +1,21 @@
-# GLS Multi-Template PDF Service
+# GLS monday Webhook Document Service
 
-Local Flask service that:
+Flask service that:
 
-- receives JSON
-- selects a real client HTML template by `template_type`
-- fills `{{ dynamic_field }}` values safely with Jinja
-- renders the HTML template to PDF with WeasyPrint
-- optionally saves a local preview copy
-- optionally creates a monday.com item and uploads the PDF
-- names generated PDF files with template type, recipient, bond/date data, timestamp, and a short unique id
+- receives a monday webhook
+- finds the board setup from `board_document_config.json`
+- fetches the changed row from monday
+- matches monday column names to template variables
+- renders the document as PDF or DOCX
+- uploads the generated file back to the same monday item
 
 ## Project Files
 
-- `app.py`: backend API, template registry, PDF generation, monday upload flow
+- `app.py`: webhook backend, template registry, document generation, monday upload flow
 - `templates/`: real client HTML templates
-- `local_tester.html`: standalone browser UI for testing each template
-- `sample_request.json`: sample API payload
-- `monday_config.example.json`: safe example config for local monday setup
+- `dock_tempaltes/`: DOCX templates
+- `board_document_config.json`: real board-to-document routing config
+- `.env.example`: environment variable template for monday API config
 - `Procfile`: Cloud Run source deploy entrypoint
 - `Dockerfile`: Cloud Run container image with WeasyPrint native Linux libraries
 
@@ -48,58 +47,31 @@ pip install -r requirements.txt
 PORT=5001 python app.py
 ```
 
-Then open `local_tester.html` in your browser and set:
-
-- `Backend URL` = `http://127.0.0.1:5001`
-
-## API
-
-List templates:
+Create your local environment file:
 
 ```bash
-curl http://127.0.0.1:5001/templates
-```
-
-Generate a PDF:
-
-```bash
-curl -X POST http://127.0.0.1:5001/generate-pdf \
-  -H "Content-Type: application/json" \
-  --data @sample_request.json
-```
-
-Payload shape:
-
-```json
-{
-  "template_type": "allocation_notice_gmo",
-  "save_local_pdf_copy": false,
-  "save_to_monday": false,
-  "data": {
-    "recipient_name": "山田 太郎"
-  }
-}
-```
-
-Missing or empty dynamic template fields render as blank strings.
-
-## monday Local Config
-
-Do not commit real secrets.
-
-Create a local file named `monday_config.json` by copying:
-
-```bash
-cp monday_config.example.json monday_config.json
+cp .env.example .env
 ```
 
 Then fill in:
 
-- `api_token`
-- `board_id`
-- `file_column_id`
+- `MONDAY_API_TOKEN`
+- `MONDAY_API_URL` if different
+- `MONDAY_FILE_API_URL` if different
 
-If `save_to_monday` is included in a request, that explicit value controls upload for that request. If it is omitted, the backend falls back to the monday config `enabled` value.
+## API
+
+Health check:
+
+```bash
+curl http://127.0.0.1:5001/health
+```
+
+Production webhook endpoint:
+
+```bash
+POST /webhooks/monday/file-generator
+```
 
 ## Cloud Run Notes
 
@@ -108,10 +80,10 @@ This repo is prepared for Cloud Run deploy:
 - Python version pinned in `.python-version`
 - production server in `requirements.txt`
 - startup command in `Procfile`
-- local secret file excluded in `.gcloudignore`
+- local env file excluded in `.gcloudignore`
 - Docker image installs WeasyPrint's native Linux libraries and Japanese fonts
 
-For Cloud Run, prefer environment variables and Secret Manager instead of `monday_config.json`.
+For Cloud Run, prefer environment variables and Secret Manager instead of local files.
 
 WeasyPrint also needs native Pango/GLib/font libraries in the deployment image. The included `Dockerfile` installs the Debian packages needed by WeasyPrint plus `fonts-noto-cjk` for Japanese output.
 
@@ -127,4 +99,4 @@ If Cloud Run was connected to GitHub before this file existed, confirm the build
 
 ## Security Note
 
-If a real monday token was ever pasted into local files, terminal history, or chat, rotate it before production use.
+If a real monday token was ever pasted into old local files, terminal history, or chat, rotate it before production use.
