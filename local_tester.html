@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>GLS PDF Template Tester</title>
+    <title>GLS Document Template Tester</title>
     <style>
       :root {
         --bg: #eef3f7;
@@ -351,13 +351,13 @@
     <main class="page">
       <section class="hero">
         <div>
-          <h1>GLS PDF Template Tester</h1>
+          <h1>GLS Document Template Tester</h1>
           <p>
-            Select a client document template, fill its dynamic fields, generate the PDF, and upload the generated file
-            to monday.
+            Select a client document template, choose PDF or Word, fill its dynamic fields, and upload the generated
+            file to monday.
           </p>
         </div>
-        <div class="hero-badge">HTML Templates + Flask API</div>
+        <div class="hero-badge">HTML PDF + DOCX Templates</div>
       </section>
 
       <section class="layout">
@@ -388,6 +388,11 @@
                   <label for="template_file">Template File</label>
                   <input id="template_file" readonly />
                 </div>
+
+                <div class="field">
+                  <label for="output_format">Output Format</label>
+                  <select id="output_format"></select>
+                </div>
               </div>
 
               <div class="field-grid" id="dynamic-fields"></div>
@@ -397,10 +402,14 @@
                   <input id="save_to_monday" type="checkbox" checked />
                   Upload to monday
                 </label>
+                <label class="check">
+                  <input id="save_local_document_copy" type="checkbox" />
+                  Save local copy in output/
+                </label>
               </div>
 
               <button class="big-button" id="submit-btn" type="button">
-                Generate PDF and Upload to monday
+                Generate File and Upload to monday
               </button>
             </div>
           </article>
@@ -427,7 +436,7 @@
           <article class="panel">
             <div class="panel-header">
               <h2>Result</h2>
-              <p>The latest PDF link and backend response appear here.</p>
+              <p>The latest generated file link and backend response appear here.</p>
             </div>
             <div class="panel-body">
               <div class="result-card">
@@ -435,7 +444,7 @@
                   <span class="pill ok">Ready</span>
                 </div>
                 <div class="link-box" id="result-links">
-                  <span class="muted">No PDF generated yet.</span>
+                  <span class="muted">No file generated yet.</span>
                 </div>
                 <label for="response-json" style="margin-bottom: 8px; display: block;">Response JSON</label>
                 <textarea id="response-json" readonly></textarea>
@@ -456,13 +465,18 @@
       const backendStatus = document.getElementById("backend-status");
       const templateSelect = document.getElementById("template_type");
       const templateFileInput = document.getElementById("template_file");
+      const outputFormatSelect = document.getElementById("output_format");
       const dynamicFields = document.getElementById("dynamic-fields");
       const saveToMondayInput = document.getElementById("save_to_monday");
+      const saveLocalCopyInput = document.getElementById("save_local_document_copy");
 
       const BACKEND_URL_STORAGE_KEY = "pdf_monday_backend_url";
       const TEMPLATE_STORAGE_KEY = "pdf_monday_template_type";
+      const OUTPUT_FORMAT_STORAGE_KEY = "pdf_monday_output_format";
+      const SAVE_LOCAL_COPY_STORAGE_KEY = "pdf_monday_save_local_copy";
 
       let templates = [];
+      let outputFormats = [];
 
       function escapeHtml(value) {
         return String(value ?? "")
@@ -499,7 +513,7 @@
       }
 
       function logBackendRequest(method, url, payload = null) {
-        console.groupCollapsed(`[GLS PDF Tester] ${method} ${url}`);
+        console.groupCollapsed(`[GLS Document Tester] ${method} ${url}`);
         console.log("Backend URL:", normalizedBackendUrl());
         if (payload) {
           console.log("Request payload:", payload);
@@ -508,7 +522,7 @@
       }
 
       function logBackendResponse(method, url, response, data, rawText) {
-        console.groupCollapsed(`[GLS PDF Tester] ${method} ${url} -> ${response.status}`);
+        console.groupCollapsed(`[GLS Document Tester] ${method} ${url} -> ${response.status}`);
         console.log("OK:", response.ok);
         console.log("Status:", response.status, response.statusText);
         console.log("Response JSON:", data);
@@ -519,7 +533,7 @@
       }
 
       function logBackendError(method, url, error) {
-        console.groupCollapsed(`[GLS PDF Tester] ${method} ${url} failed`);
+        console.groupCollapsed(`[GLS Document Tester] ${method} ${url} failed`);
         console.error(error);
         console.log("If this says Failed to fetch, check the browser Network tab for CORS, mixed content, DNS, or Cloud Run authentication errors.");
         console.groupEnd();
@@ -549,6 +563,14 @@
         return templates.find((template) => template.type === templateSelect.value) || templates[0];
       }
 
+      function availableFormatsForCurrentTemplate() {
+        const template = currentTemplate();
+        if (!template || !Array.isArray(template.available_output_formats) || !template.available_output_formats.length) {
+          return outputFormats;
+        }
+        return template.available_output_formats;
+      }
+
       function renderTemplateOptions(defaultTemplateType) {
         const savedTemplate = window.localStorage.getItem(TEMPLATE_STORAGE_KEY);
         const selectedType = savedTemplate || defaultTemplateType;
@@ -565,6 +587,48 @@
         }
       }
 
+      function renderOutputFormatOptions(defaultOutputFormat) {
+        const savedOutputFormat = window.localStorage.getItem(OUTPUT_FORMAT_STORAGE_KEY);
+        const selectedFormat = savedOutputFormat || defaultOutputFormat;
+        const availableFormats = availableFormatsForCurrentTemplate();
+
+        outputFormatSelect.innerHTML = availableFormats
+          .map((format) => {
+            const selected = format.value === selectedFormat ? "selected" : "";
+            return `<option value="${escapeHtml(format.value)}" ${selected}>${escapeHtml(format.label)}</option>`;
+          })
+          .join("");
+
+        if (![...outputFormatSelect.options].some((option) => option.value === selectedFormat) && availableFormats.length) {
+          outputFormatSelect.value = availableFormats[0].value;
+        }
+
+        window.localStorage.setItem(OUTPUT_FORMAT_STORAGE_KEY, outputFormatSelect.value);
+        updateSubmitButton();
+      }
+
+      function fieldsForCurrentSelection(template) {
+        if (!template) {
+          return [];
+        }
+
+        const format = outputFormatSelect.value || "pdf";
+        const byFormat = template.fields_by_format || {};
+        return Array.isArray(byFormat[format]) && byFormat[format].length
+          ? byFormat[format]
+          : template.fields || [];
+      }
+
+      function templateFileForCurrentSelection(template) {
+        if (!template) {
+          return "";
+        }
+
+        return outputFormatSelect.value === "docx" && template.docx_file
+          ? template.docx_file
+          : template.file;
+      }
+
       function renderDynamicFields() {
         const template = currentTemplate();
         if (!template) {
@@ -573,10 +637,11 @@
           return;
         }
 
-        templateFileInput.value = template.file;
         window.localStorage.setItem(TEMPLATE_STORAGE_KEY, template.type);
+        renderOutputFormatOptions(outputFormatSelect.value || (outputFormats[0] && outputFormats[0].value) || "pdf");
+        templateFileInput.value = templateFileForCurrentSelection(template);
 
-        dynamicFields.innerHTML = template.fields
+        dynamicFields.innerHTML = fieldsForCurrentSelection(template)
           .map((field) => {
             const value = template.sample_data && template.sample_data[field] ? template.sample_data[field] : "";
             const full = isLongField(field) ? " full" : "";
@@ -619,6 +684,12 @@
           </div>
           <div class="status-row">
             <div>
+              <strong>Global Output Formats</strong>
+              <span>${outputFormats.map((format) => escapeHtml(format.label)).join(", ")}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
               <strong>Board ID</strong>
               <span>${escapeHtml(monday.board_id || "Not set")}</span>
             </div>
@@ -631,8 +702,14 @@
           </div>
           <div class="status-row">
             <div>
-              <strong>Upload PDF</strong>
-              <span>${monday.upload_pdf ? "Yes" : "No"}</span>
+              <strong>Upload Generated File</strong>
+              <span>${monday.upload_generated_file !== undefined ? (monday.upload_generated_file ? "Yes" : "No") : (monday.upload_pdf ? "Yes" : "No")}</span>
+            </div>
+          </div>
+          <div class="status-row">
+            <div>
+              <strong>Default Local Save</strong>
+              <span>${monday.save_local_document_copy ? "Yes" : "No"}</span>
             </div>
           </div>
           <div class="status-row">
@@ -646,17 +723,18 @@
 
       function renderLinks(data) {
         resultLinks.innerHTML = "";
+        const outputLabel = data && data.output_label ? data.output_label : "Generated file";
 
         if (data && data.file_path) {
           const fileName = data.file_path.split("/").pop();
           resultLinks.innerHTML += `
-            <a href="${buildApiUrl(`/output/${encodeURIComponent(fileName)}`)}" target="_blank" rel="noreferrer">Open Generated PDF</a>
+            <a href="${buildApiUrl(`/output/${encodeURIComponent(fileName)}`)}" target="_blank" rel="noreferrer">Open ${escapeHtml(outputLabel)}</a>
             <span class="muted">${escapeHtml(fileName)}</span>
           `;
         } else if (data && data.generated_filename) {
           resultLinks.innerHTML += `
             <span class="muted">Generated file: ${escapeHtml(data.generated_filename)}</span>
-            <span class="muted">No local PDF copy was saved.</span>
+            <span class="muted">No local copy was saved.</span>
           `;
         }
 
@@ -687,7 +765,12 @@
           }
 
           templates = data.templates || [];
+          outputFormats = data.output_formats || [];
           renderTemplateOptions(data.default_template_type);
+          const savedLocalCopy = window.localStorage.getItem(SAVE_LOCAL_COPY_STORAGE_KEY);
+          saveLocalCopyInput.checked = savedLocalCopy === null
+            ? Boolean(data.monday && data.monday.save_local_document_copy)
+            : savedLocalCopy === "true";
           renderDynamicFields();
           renderBackendStatus(data);
         } catch (error) {
@@ -711,20 +794,29 @@
 
         return {
           template_type: templateSelect.value,
-          save_local_pdf_copy: false,
+          output_format: outputFormatSelect.value,
+          save_local_document_copy: saveLocalCopyInput.checked,
           save_to_monday: saveToMondayInput.checked,
           data
         };
       }
 
+      function updateSubmitButton() {
+        const selectedOption = outputFormatSelect.options[outputFormatSelect.selectedIndex];
+        const label = selectedOption ? selectedOption.textContent : "File";
+        submitBtn.textContent = saveToMondayInput.checked
+          ? `Generate ${label} and Upload to monday`
+          : `Generate ${label}`;
+      }
+
       async function handleSubmit() {
         submitBtn.disabled = true;
         submitBtn.textContent = "Processing...";
-        setStatus("Generating PDF...");
+        setStatus("Generating file...");
 
         try {
           const method = "POST";
-          const url = buildApiUrl("/generate-pdf");
+          const url = buildApiUrl("/generate-document");
           const payload = buildPayload();
           logBackendRequest(method, url, payload);
 
@@ -743,22 +835,25 @@
 
           setResponse(data);
           renderLinks(data);
+          const outputLabel = data.output_label || "File";
 
           if (data.monday_error) {
-            setStatus("PDF created, monday failed", "warn");
+            setStatus(`${outputLabel} created, monday failed`, "warn");
+          } else if (data.monday_result && data.monday_result.file_uploaded) {
+            setStatus(`${outputLabel} created and uploaded`, "ok");
           } else if (data.monday_result) {
-            setStatus("PDF created and uploaded", "ok");
+            setStatus(`${outputLabel} created, monday row added`, "ok");
           } else {
-            setStatus("PDF created", "ok");
+            setStatus(`${outputLabel} created`, "ok");
           }
         } catch (error) {
-          logBackendError("POST", buildApiUrl("/generate-pdf"), error);
+          logBackendError("POST", buildApiUrl("/generate-document"), error);
           setStatus("Request failed", "warn");
           setResponse({ success: false, message: error.message });
           renderLinks(null);
         } finally {
           submitBtn.disabled = false;
-          submitBtn.textContent = "Generate PDF and Upload to monday";
+          updateSubmitButton();
         }
       }
 
@@ -777,11 +872,19 @@
       }
 
       templateSelect.addEventListener("change", renderDynamicFields);
+      outputFormatSelect.addEventListener("change", () => {
+        window.localStorage.setItem(OUTPUT_FORMAT_STORAGE_KEY, outputFormatSelect.value);
+        renderDynamicFields();
+      });
+      saveLocalCopyInput.addEventListener("change", () => {
+        window.localStorage.setItem(SAVE_LOCAL_COPY_STORAGE_KEY, saveLocalCopyInput.checked ? "true" : "false");
+      });
+      saveToMondayInput.addEventListener("change", updateSubmitButton);
       submitBtn.addEventListener("click", handleSubmit);
       saveBackendBtn.addEventListener("click", saveBackendUrl);
 
       loadSavedBackendUrl();
-      setResponse({ success: true, message: "Ready. Choose a template and generate a PDF." });
+      setResponse({ success: true, message: "Ready. Choose a template and generate a file." });
       loadBackendDefaults();
     </script>
   </body>

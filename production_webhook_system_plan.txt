@@ -1,0 +1,222 @@
+GLS production update plan
+
+Goal
+- Change the app from "manual local tester sends document data" to "monday webhook triggers file generation".
+- monday becomes the source of truth for row data.
+- The backend decides the document type from the webhook board ID.
+- The backend fetches the row values from monday, generates the file, uploads it back to monday, and updates status columns.
+
+Main production flow
+1. monday sends a webhook to our backend when the status column changes.
+2. Backend verifies and parses the webhook payload.
+3. Backend reads board_id and pulseId/item_id from the webhook event.
+4. Backend finds the board configuration from a local JSON config file.
+5. Backend checks whether the webhook really means "generate file".
+6. Backend fetches the full monday row data for that item. (when you mean full data only that row datas full speed also imortant)
+7. Backend converts monday column values into document variables using the board configuration.
+8. Backend applies defaults and derived values.
+9. Backend generates the file using the configured template and output format.
+10. Backend uploads the generated file to the correct monday Files column for that board.
+11. Backend updates the monday status/result columns.
+12. Backend returns success to monday.
+
+Recommended endpoint design
+- Keep the current generation code, but add a new production endpoint:
+  POST /webhooks/monday/file-generator
+- This endpoint will be the main production entrypoint.
+- Keep /generate-document only for development/testing.
+- Keep local_tester.html only as a dev tool, not as part of the production workflow.
+
+Important monday webhook behavior
+- monday first sends a JSON "challenge" when a webhook URL is created.
+- The endpoint must return the same challenge JSON body.
+- monday webhook payloads also include triggerUuid and isRetry.
+- We should use triggerUuid as the idempotency key so we do not generate duplicate files on retries.
+
+Production board routing design
+- Create one editable JSON config file, for example:
+  board_document_config.json
+- Each board_id maps to one document setup.
+- This makes the system easy to update without changing Python logic every time.
+
+Suggested config structure
+{
+  "boards": {
+    "5095195874": {
+      "enabled": true,
+      "template_type": "terms_two_page",
+      "output_format": "docx",
+      "trigger": {
+        "column_id": "color_mm34cpyx",
+        "generate_label": "Generate file",
+        "generate_index": 0
+      },
+      "upload": {
+        "file_column_id": "file_mm2qgmt1"
+      },
+      "status_updates": {
+        "status_column_id": "color_mm34cpyx",
+        "processing_label": "Generating",
+        "success_label": "Set file",
+        "error_label": "Error"
+      },
+      "source_columns": {
+        "issuer_company_name": "text_col_id_1",
+        "bond_number": "text_col_id_2",
+        "payment_deadline": "date_col_id_1",
+        "bank_name": "text_col_id_3",
+        "branch_name": "text_col_id_4",
+        "account_type": "dropdown_col_id_1",
+        "account_number": "numbers_col_id_1",
+        "account_holder": "text_col_id_5"
+      },
+      "defaults": {
+        "issuer_company_name": "グローバル・ロジスティックス・サービス株式会社"
+      }
+    }
+  }
+}
+
+Config rules
+- Use monday column IDs as the real mapping keys, not only visible column titles.
+- Column titles can change in monday, but column IDs are more stable.
+- If needed, we can also keep a human-readable note field in the config for easier maintenance.
+- Status labels are safer if stored by index as well as text.
+
+How file type is decided
+- board_id from the webhook decides everything:
+  - template_type
+  - output_format
+  - trigger column and trigger status
+  - source column mapping
+  - defaults
+  - upload file column
+  - success/error status update behavior
+
+How monday data is fetched
+- Use the webhook event values:
+  - boardId
+  - pulseId
+- Then query monday for that item's current column values.
+- Fetch:
+  - item id
+  - item name
+  - board id
+  - column_values.id
+  - column_values.text
+  - column_values.value
+  - column_values.type
+  - column.title
+- After that, build one normalized row dictionary in Python.
+
+Recommended internal normalization flow
+1. Load raw monday row data.
+2. Convert row data into a simple dictionary by column_id.
+3. Apply the board's source_columns mapping to produce template variables.
+4. Apply defaults from config if a value is empty.
+5. Apply existing derived alias logic if still useful.
+6. Generate the final template context.
+
+Document generation rules
+- PDF:
+  - keep the current HTML -> PDF flow
+- DOCX:
+  - use the .docx template for that template_type
+- The backend should not accept free-form template variables from the browser in production.
+- In production, variables should come from monday row data and board config only.
+
+What should change in current code
+- Keep:
+  - template rendering logic
+  - monday auth/request helpers
+  - upload-to-monday helper
+  - PDF and DOCX generation logic
+- Add:
+  - webhook endpoint
+  - board config loader
+  - row fetch by item_id
+  - monday row -> template context mapper
+  - status update helper
+  - idempotency protection using triggerUuid
+- Reduce or isolate from production:
+  - local_tester.html
+  - /config/defaults
+  - /templates
+  - manual payload extraction flow from browser form data
+
+Recommended backend steps in the new webhook endpoint
+1. If request body contains challenge, return it immediately.
+2. Validate request shape.
+3. Read event.boardId and event.pulseId.
+4. Find board config.
+5. Confirm the webhook came from the expected trigger column.
+6. Confirm the new status value means "Generate file".
+7. If triggerUuid was already processed, return success without regenerating.
+8. Optionally update monday status to "Generating".
+9. Fetch the full row from monday.
+10. Map monday values to template variables.
+11. Generate file.
+12. Upload file to the board's configured Files column.
+13. Update monday status to "Set file" or another success label.
+14. If anything fails, update monday status to "Error" and optionally save the error message in a text column.
+
+Recommended extra config fields
+- result_message_column_id
+  - optional text/long_text column for success or failure notes
+- document_name_template
+  - custom file name template per board
+- enabled
+  - allow disabling one board without removing it
+- save_local_document_copy
+  - false by default in production
+
+Recommended result/error behavior
+- On success:
+  - upload file
+  - set status to success label
+  - optionally write generated filename and timestamp to monday
+- On error:
+  - set status to error label
+  - optionally write error details to a message column
+- Do not silently fail.
+
+About local tester and extra frontend logic
+- local_tester.html is still useful for development.
+- But production should not depend on the tester sending final document values.
+- Production should depend on monday webhook + monday row fetch.
+- So the tester should be treated as a dev-only utility, not the real business flow.
+
+Recommended implementation order
+1. Add board_document_config.json
+2. Add monday webhook endpoint with challenge response
+3. Add board config lookup by board_id
+4. Add fetch-item-from-monday function
+5. Add monday-row-to-template-context mapping
+6. Add status update helper
+7. Connect file generation and upload
+8. Keep local tester for internal testing only
+
+Small but important production notes
+- Use triggerUuid for idempotency.
+- Use monday column IDs in config, not only names.
+- Use monday status index when possible, not only status text.
+- Save files locally only if explicitly enabled.
+- In Cloud Run, keep monday token in Secret Manager, not in JSON files.
+
+Proposed final system design summary
+- Input:
+  monday webhook payload
+- Router:
+  board_id -> board_document_config.json
+- Data source:
+  monday row values fetched by pulseId/item_id
+- Mapping:
+  board source_columns + defaults
+- Renderer:
+  PDF HTML template or DOCX template
+- Output:
+  generated file uploaded to monday Files column
+- Result tracking:
+  monday status column + optional message column
+
+This is the cleanest direction for production because it removes manual data entry from the real flow and makes the board itself the source of truth.

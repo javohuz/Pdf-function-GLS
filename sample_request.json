@@ -1,6 +1,7 @@
 {
   "template_type": "allocation_notice_gmo",
-  "save_local_pdf_copy": false,
+  "output_format": "pdf",
+  "save_local_document_copy": false,
   "save_to_monday": false,
   "data": {
     "notice_date": "2026年4月25日",

@@ -2,12 +2,10 @@ import json
 import mimetypes
 import os
 import re
-import uuid
-from datetime import datetime
 from io import BytesIO
 from pathlib import Path
 from string import Template
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import requests
 from flask import Flask, jsonify, make_response, request, send_from_directory
@@ -22,6 +20,22 @@ TEMPLATE_DIR = BASE_DIR / "templates"
 MONDAY_CONFIG_PATH = BASE_DIR / "monday_config.json"
 
 DEFAULT_TEMPLATE_TYPE = "allocation_notice_gmo"
+DEFAULT_OUTPUT_FORMAT = "pdf"
+DOCX_TEMPLATE_DIR_CANDIDATES = [
+    BASE_DIR / "docx_templates",
+    BASE_DIR / "dock_tempaltes",
+]
+
+OUTPUT_FORMAT_REGISTRY = {
+    "pdf": {
+        "label": "PDF",
+        "extension": "pdf",
+    },
+    "docx": {
+        "label": "Word (.docx)",
+        "extension": "docx",
+    },
+}
 
 PDF_TEMPLATE_REGISTRY = {
     "allocation_notice": {
@@ -66,6 +80,14 @@ PDF_TEMPLATE_REGISTRY = {
     },
 }
 
+DOCX_TEMPLATE_REGISTRY = {
+    template_type: {
+        "file": config["file"].replace(".html", ".docx"),
+        "label": f'{config["label"]} (Word Template)',
+    }
+    for template_type, config in PDF_TEMPLATE_REGISTRY.items()
+}
+
 TEMPLATE_TYPE_ALIASES = {
     "allocation": "allocation_notice",
     "allocation_gmo": "allocation_notice_gmo",
@@ -93,6 +115,8 @@ CONTROL_PAYLOAD_KEYS = {
     "data",
     "document_type",
     "monday",
+    "output_format",
+    "save_local_document_copy",
     "save_local_pdf_copy",
     "save_to_monday",
     "template",
@@ -114,10 +138,12 @@ SAMPLE_FIELD_VALUES = {
     "applicant_postal_code": "840-0815",
     "application_date": "2026年4月25日",
     "bank_name": "GMOあおぞらネット銀行",
+    "bank_info": "GMOあおぞらネット銀行　法人営業部\n普通預金　口座番号　235859999\nグローバルロジスティックスサービス（カ",
     "bond_number": "8",
     "bond_period": "2026年4月27日から2027年4月27日まで",
     "bond_title": "第8回普通社債",
     "bond_unit_amount": "1口 金1,000,000円",
+    "bond_unit_cost": "100",
     "bond_unit_text": "1口 金1,000,000円",
     "bondholder_address": "佐賀県佐賀市天神1-2-55 IK天神ビル2階 西北号室",
     "bondholder_name": "山田 太郎",
@@ -152,6 +178,7 @@ SAMPLE_FIELD_VALUES = {
     "issuer_zip": "840-0815",
     "joint_guarantee_text": "当社の代表取締役は、本社債の元利金の返還債務について、当社と連帯して保証する。",
     "monthly_interest_after_tax": "31,874円",
+    "monthly_interest_net": "31,874円",
     "net_payment_amount": "31,874円",
     "notice_date": "2026年4月25日",
     "paid_amount": "600万円",
@@ -174,7 +201,9 @@ SAMPLE_FIELD_VALUES = {
     "unit_count": "6",
 }
 
-TEMPLATE_FIELD_CACHE: Dict[str, List[str]] = {}
+HTML_TEMPLATE_FIELD_CACHE: Dict[str, List[str]] = {}
+DOCX_TEMPLATE_FIELD_CACHE: Dict[str, List[str]] = {}
+TEMPLATE_FIELD_CACHE: Dict[Tuple[str, str], List[str]] = {}
 TEST_HIGHLIGHT_RE = re.compile(
     r"\s*background(?:-color)?\s*:\s*(?:#fff2cc|#f3ecc9|yellow)\s*;?",
     re.IGNORECASE,
@@ -249,20 +278,33 @@ def load_local_monday_config() -> Dict:
 def resolve_runtime_config(payload: Dict) -> Dict:
     file_config = load_local_monday_config()
     config = {
-        "save_local_pdf_copy": parse_bool(os.getenv("SAVE_LOCAL_PDF_COPY"), False),
+        "save_local_document_copy": parse_bool(
+            os.getenv("SAVE_LOCAL_DOCUMENT_COPY"),
+            parse_bool(os.getenv("SAVE_LOCAL_PDF_COPY"), False),
+        ),
     }
 
     if isinstance(file_config, dict):
-        config["save_local_pdf_copy"] = parse_bool(
+        save_local_value = file_config.get(
+            "save_local_document_copy",
             file_config.get("save_local_pdf_copy"),
-            config["save_local_pdf_copy"],
+        )
+        config["save_local_document_copy"] = parse_bool(
+            save_local_value,
+            config["save_local_document_copy"],
         )
 
-    if isinstance(payload, dict) and "save_local_pdf_copy" in payload:
-        config["save_local_pdf_copy"] = parse_bool(
-            payload.get("save_local_pdf_copy"),
-            config["save_local_pdf_copy"],
-        )
+    if isinstance(payload, dict):
+        if "save_local_document_copy" in payload:
+            config["save_local_document_copy"] = parse_bool(
+                payload.get("save_local_document_copy"),
+                config["save_local_document_copy"],
+            )
+        elif "save_local_pdf_copy" in payload:
+            config["save_local_document_copy"] = parse_bool(
+                payload.get("save_local_pdf_copy"),
+                config["save_local_document_copy"],
+            )
 
     return config
 
@@ -283,6 +325,10 @@ def get_default_monday_config() -> Dict:
             "MONDAY_ITEM_NAME_TEMPLATE",
             "${template_label} ${recipient_name} ${bond_number}",
         ).strip(),
+        "upload_generated_file": parse_bool(
+            os.getenv("MONDAY_UPLOAD_GENERATED_FILE"),
+            parse_bool(os.getenv("MONDAY_UPLOAD_PDF"), True),
+        ),
         "upload_pdf": parse_bool(os.getenv("MONDAY_UPLOAD_PDF"), True),
         "save_mapped_columns": parse_bool(os.getenv("MONDAY_SAVE_MAPPED_COLUMNS"), False),
         "column_map": safe_json_loads(os.getenv("MONDAY_COLUMN_MAP_JSON", ""), {}),
@@ -302,7 +348,11 @@ def resolve_monday_config(payload: Dict) -> Dict:
     config.update(request_config)
 
     config["enabled"] = parse_bool(config.get("enabled"), False)
-    config["upload_pdf"] = parse_bool(config.get("upload_pdf"), True)
+    if "upload_generated_file" not in config:
+        config["upload_generated_file"] = config.get("upload_pdf", True)
+
+    config["upload_generated_file"] = parse_bool(config.get("upload_generated_file"), True)
+    config["upload_pdf"] = parse_bool(config.get("upload_pdf"), config["upload_generated_file"])
     config["save_mapped_columns"] = parse_bool(config.get("save_mapped_columns"), False)
     config["board_id"] = str(config.get("board_id", "")).strip()
     config["group_id"] = str(config.get("group_id", "")).strip()
@@ -386,7 +436,7 @@ def build_monday_item_name(data: Dict, config: Dict) -> str:
         )
     )
 
-    return " - ".join(str(part).strip() for part in fallback_parts if not is_blank(part)) or "Generated PDF"
+    return " - ".join(str(part).strip() for part in fallback_parts if not is_blank(part)) or "Generated File"
 
 
 def normalize_monday_column_value(value):
@@ -489,20 +539,20 @@ def create_monday_item(data: Dict, config: Dict) -> Dict:
     return result["create_item"]
 
 
-def upload_pdf_to_monday_file_column(item_id: str, pdf_bytes: bytes, pdf_filename: str, config: Dict) -> Dict:
-    mime_type = mimetypes.guess_type(pdf_filename)[0] or "application/pdf"
+def upload_generated_file_to_monday_file_column(item_id: str, file_bytes: bytes, filename: str, config: Dict) -> Dict:
+    mime_type = mimetypes.guess_type(filename)[0] or "application/octet-stream"
     query = (
         f'mutation ($file: File!) {{ '
         f'add_file_to_column (item_id: {int(item_id)}, column_id: "{config["file_column_id"]}", file: $file) '
         f'{{ id }} }}'
     )
 
-    with BytesIO(pdf_bytes) as pdf_file:
+    with BytesIO(file_bytes) as generated_file:
         response = requests.post(
             config["file_api_url"],
             headers=monday_headers(config),
             data={"query": query},
-            files={"variables[file]": (pdf_filename, pdf_file, mime_type)},
+            files={"variables[file]": (filename, generated_file, mime_type)},
             timeout=90,
         )
 
@@ -566,10 +616,10 @@ def fetch_monday_board_schema(config: Dict) -> Dict:
     return boards[0]
 
 
-def upload_to_monday(pdf_bytes: bytes, pdf_filename: str, data: Dict, local_pdf_path: str = "") -> Dict:
+def upload_to_monday(file_bytes: bytes, filename: str, data: Dict, local_file_path: str = "") -> Dict:
     """
-    Create a monday item from the generated PDF payload and optionally upload
-    the PDF into a monday file column.
+    Create a monday item from the generated document payload and optionally upload
+    the generated file into a monday file column.
 
     Configuration priority:
     1. Request JSON -> "monday": {...}
@@ -579,16 +629,17 @@ def upload_to_monday(pdf_bytes: bytes, pdf_filename: str, data: Dict, local_pdf_
     config = resolve_monday_config(data)
     validate_monday_config(config)
 
-    column_values = build_monday_column_values(data, local_pdf_path, config)
+    column_values = build_monday_column_values(data, local_file_path, config)
     created_item = create_monday_item(data, config)
     result = {
         "success": True,
         "item_id": created_item["id"],
         "item_name": created_item["name"],
         "board_id": config["board_id"],
+        "file_uploaded": False,
         "pdf_uploaded": False,
         "columns_updated": False,
-        "saved_locally": bool(local_pdf_path),
+        "saved_locally": bool(local_file_path),
     }
 
     if column_values:
@@ -596,10 +647,12 @@ def upload_to_monday(pdf_bytes: bytes, pdf_filename: str, data: Dict, local_pdf_
         result["columns_updated"] = True
         result["column_update_response"] = update_result
 
-    if config.get("upload_pdf") and config.get("file_column_id"):
-        file_result = upload_pdf_to_monday_file_column(created_item["id"], pdf_bytes, pdf_filename, config)
-        result["pdf_uploaded"] = True
+    if config.get("upload_generated_file") and config.get("file_column_id"):
+        file_result = upload_generated_file_to_monday_file_column(created_item["id"], file_bytes, filename, config)
+        result["file_uploaded"] = True
+        result["pdf_uploaded"] = filename.lower().endswith(".pdf")
         result["file_column_id"] = config["file_column_id"]
+        result["uploaded_filename"] = filename
         result["file_upload_response"] = file_result
 
     return result
@@ -607,7 +660,7 @@ def upload_to_monday(pdf_bytes: bytes, pdf_filename: str, data: Dict, local_pdf_
 
 def normalize_template_type(raw_template_type) -> str:
     template_type = str(raw_template_type or DEFAULT_TEMPLATE_TYPE).strip()
-    template_type = template_type.rsplit("/", 1)[-1].replace(".html", "")
+    template_type = template_type.rsplit("/", 1)[-1].replace(".html", "").replace(".docx", "")
     template_type = TEMPLATE_TYPE_ALIASES.get(template_type, template_type)
 
     if template_type not in PDF_TEMPLATE_REGISTRY:
@@ -617,12 +670,28 @@ def normalize_template_type(raw_template_type) -> str:
     return template_type
 
 
+def normalize_output_format(raw_output_format) -> str:
+    output_format = str(raw_output_format or DEFAULT_OUTPUT_FORMAT).strip().lower()
+    if output_format not in OUTPUT_FORMAT_REGISTRY:
+        choices = ", ".join(sorted(OUTPUT_FORMAT_REGISTRY.keys()))
+        raise ValueError(f"Unknown output_format '{raw_output_format}'. Choose one of: {choices}.")
+    return output_format
+
+
 def requested_template_type(payload: Dict) -> str:
     return normalize_template_type(
         payload.get("template_type")
         or payload.get("document_type")
         or payload.get("template")
         or DEFAULT_TEMPLATE_TYPE
+    )
+
+
+def requested_output_format(payload: Dict) -> str:
+    return normalize_output_format(
+        payload.get("output_format")
+        or payload.get("file_format")
+        or DEFAULT_OUTPUT_FORMAT
     )
 
 
@@ -637,14 +706,75 @@ def template_source(template_type: str) -> str:
     return source
 
 
-def template_fields(template_type: str) -> List[str]:
+def docx_template_path(template_type: str) -> Optional[Path]:
+    config = DOCX_TEMPLATE_REGISTRY.get(normalize_template_type(template_type))
+    if not config:
+        return None
+
+    for directory in DOCX_TEMPLATE_DIR_CANDIDATES:
+        candidate = directory / config["file"]
+        if candidate.exists():
+            return candidate
+
+    return None
+
+
+def available_output_formats(template_type: str) -> List[Dict]:
+    formats = [dict(value="pdf", label=OUTPUT_FORMAT_REGISTRY["pdf"]["label"])]
+    if docx_template_path(template_type):
+        formats.append(dict(value="docx", label=OUTPUT_FORMAT_REGISTRY["docx"]["label"]))
+    return formats
+
+
+def html_template_fields(template_type: str) -> List[str]:
     normalized_type = normalize_template_type(template_type)
-    if normalized_type in TEMPLATE_FIELD_CACHE:
-        return TEMPLATE_FIELD_CACHE[normalized_type]
+    if normalized_type in HTML_TEMPLATE_FIELD_CACHE:
+        return HTML_TEMPLATE_FIELD_CACHE[normalized_type]
 
     ast = JINJA_ENV.parse(template_source(normalized_type))
     fields = sorted(meta.find_undeclared_variables(ast))
-    TEMPLATE_FIELD_CACHE[normalized_type] = fields
+    HTML_TEMPLATE_FIELD_CACHE[normalized_type] = fields
+    return fields
+
+
+def docx_template_fields(template_type: str) -> List[str]:
+    normalized_type = normalize_template_type(template_type)
+    if normalized_type in DOCX_TEMPLATE_FIELD_CACHE:
+        return DOCX_TEMPLATE_FIELD_CACHE[normalized_type]
+
+    template_path = docx_template_path(normalized_type)
+    if not template_path:
+        DOCX_TEMPLATE_FIELD_CACHE[normalized_type] = []
+        return []
+
+    try:
+        from docxtpl import DocxTemplate
+    except Exception:
+        DOCX_TEMPLATE_FIELD_CACHE[normalized_type] = []
+        return []
+
+    template = DocxTemplate(str(template_path))
+    fields = sorted(template.get_undeclared_template_variables())
+    DOCX_TEMPLATE_FIELD_CACHE[normalized_type] = fields
+    return fields
+
+
+def template_fields(template_type: str, output_format: Optional[str] = None) -> List[str]:
+    normalized_type = normalize_template_type(template_type)
+    normalized_format = normalize_output_format(output_format) if output_format else "all"
+    cache_key = (normalized_type, normalized_format)
+
+    if cache_key in TEMPLATE_FIELD_CACHE:
+        return TEMPLATE_FIELD_CACHE[cache_key]
+
+    if normalized_format == "pdf":
+        fields = html_template_fields(normalized_type)
+    elif normalized_format == "docx":
+        fields = docx_template_fields(normalized_type)
+    else:
+        fields = sorted(set(html_template_fields(normalized_type)) | set(docx_template_fields(normalized_type)))
+
+    TEMPLATE_FIELD_CACHE[cache_key] = fields
     return fields
 
 
@@ -652,12 +782,21 @@ def template_catalog() -> List[Dict]:
     catalog = []
     for template_type, config in PDF_TEMPLATE_REGISTRY.items():
         fields = template_fields(template_type)
+        fields_by_format = {
+            "pdf": html_template_fields(template_type),
+        }
+        if docx_template_path(template_type):
+            fields_by_format["docx"] = docx_template_fields(template_type)
+
         catalog.append(
             {
                 "type": template_type,
                 "label": config["label"],
                 "file": config["file"],
+                "docx_file": DOCX_TEMPLATE_REGISTRY.get(template_type, {}).get("file", ""),
+                "available_output_formats": available_output_formats(template_type),
                 "fields": fields,
+                "fields_by_format": fields_by_format,
                 "sample_data": {
                     field: SAMPLE_FIELD_VALUES.get(field, "")
                     for field in fields
@@ -703,6 +842,26 @@ def normalize_unit_count(value) -> str:
     return text[:-1].strip() if text.endswith("口") else text
 
 
+def extract_money_number(value) -> str:
+    text = str(value or "").strip()
+    match = re.search(r"金\s*([0-9０-９,]+)", text)
+    if not match:
+        match = re.search(r"([0-9０-９,]+)", text)
+    return match.group(1) if match else ""
+
+
+def yen_to_man_yen(value) -> str:
+    number_text = extract_money_number(value)
+    normalized = number_text.replace(",", "").translate(str.maketrans("０１２３４５６７８９", "0123456789"))
+    if not normalized.isdigit():
+        return number_text
+
+    amount = int(normalized)
+    if amount >= 10000 and amount % 10000 == 0:
+        return f"{amount // 10000:,}"
+    return number_text
+
+
 def filename_part(value, fallback: str = "") -> str:
     text = str(value or fallback or "").strip()
     text = FILENAME_UNSAFE_RE.sub("-", text)
@@ -710,7 +869,7 @@ def filename_part(value, fallback: str = "") -> str:
     return text[:60]
 
 
-def build_pdf_filename(template_info: Dict, context: Dict) -> str:
+def build_document_filename(template_info: Dict, context: Dict, output_format: str) -> str:
     recipient = first_value(
         context,
         "recipient_name",
@@ -718,7 +877,6 @@ def build_pdf_filename(template_info: Dict, context: Dict) -> str:
         "applicant_name",
         "bondholder_name",
     )
-    bond = first_value(context, "bond_number", "bond_title")
     document_date = first_value(
         context,
         "notice_date",
@@ -730,18 +888,22 @@ def build_pdf_filename(template_info: Dict, context: Dict) -> str:
         "deposit_date",
         "date",
     )
-    timestamp = datetime.utcnow().strftime("%Y%m%dT%H%M%S")
-    unique_id = uuid.uuid4().hex[:8]
 
     parts = [
         filename_part(template_info["template_type"], "document"),
         filename_part(recipient),
-        filename_part(f"bond-{bond}" if bond else ""),
         filename_part(document_date),
-        timestamp,
-        unique_id,
     ]
-    return "-".join(part for part in parts if part) + ".pdf"
+    extension = OUTPUT_FORMAT_REGISTRY[output_format]["extension"]
+    base_name = "-".join(part for part in parts if part) or "document"
+    file_name = f"{base_name}.{extension}"
+
+    counter = 2
+    while (OUTPUT_DIR / file_name).exists():
+        file_name = f"{base_name}-{counter}.{extension}"
+        counter += 1
+
+    return file_name
 
 
 def parse_bond_number(value) -> str:
@@ -777,6 +939,34 @@ def add_derived_aliases(data: Dict) -> Dict:
     set_if_blank(data, "account_holder", first_value(data, "account_name"))
     set_if_blank(data, "account_name", first_value(data, "account_holder"))
 
+    set_if_blank(data, "bank_name", first_value(data, "bank"))
+    set_if_blank(data, "branch_name", first_value(data, "branch"))
+
+    set_if_blank(
+        data,
+        "bank_info",
+        "\n".join(
+            part
+            for part in [
+                "　".join(
+                    part
+                    for part in [first_value(data, "bank_name"), first_value(data, "branch_name")]
+                    if not is_blank(part)
+                ),
+                "　".join(
+                    part
+                    for part in [
+                        first_value(data, "account_type"),
+                        f'口座番号　{first_value(data, "account_number")}' if not is_blank(first_value(data, "account_number")) else "",
+                    ]
+                    if not is_blank(part)
+                ),
+                first_value(data, "account_holder", "account_name"),
+            ]
+            if not is_blank(part)
+        ),
+    )
+
     set_if_blank(data, "allocated_amount", first_value(data, "amount", "face_amount", "paid_amount", "deposit_amount"))
     set_if_blank(data, "amount", first_value(data, "allocated_amount", "face_amount", "paid_amount", "deposit_amount"))
     set_if_blank(data, "paid_amount", first_value(data, "allocated_amount", "amount"))
@@ -794,20 +984,24 @@ def add_derived_aliases(data: Dict) -> Dict:
     if not is_blank(data.get("bond_number")):
         set_if_blank(data, "bond_title", f'第{data["bond_number"]}回普通社債')
 
+    set_if_blank(data, "bond_unit_cost", yen_to_man_yen(first_value(data, "bond_unit_amount", "bond_unit_text")))
+    set_if_blank(data, "monthly_interest_net", first_value(data, "monthly_interest_after_tax", "net_payment_amount"))
+    set_if_blank(data, "monthly_interest_after_tax", first_value(data, "monthly_interest_net", "net_payment_amount"))
+
     set_if_blank(data, "bank_name", first_value(data, "bank"))
     set_if_blank(data, "branch_name", first_value(data, "branch"))
 
     return data
 
 
-def build_template_context(document_data: Dict, template_type: str) -> Dict:
+def build_template_context(document_data: Dict, template_type: str, output_format: Optional[str] = None) -> Dict:
     context = {
         key: blank_if_none(value)
         for key, value in document_data.items()
     }
     add_derived_aliases(context)
 
-    for field in template_fields(template_type):
+    for field in template_fields(template_type, output_format):
         context.setdefault(field, "")
 
     return context
@@ -883,13 +1077,42 @@ def html_to_pdf_bytes(html_content: str) -> bytes:
     return HTML(string=html_content, base_url=str(BASE_DIR)).write_pdf()
 
 
-def build_pdf(document_data: Dict, template_type: str) -> Tuple[bytes, Dict, Dict]:
+def docx_template_to_bytes(template_type: str, context: Dict) -> bytes:
+    template_path = docx_template_path(template_type)
+    if not template_path:
+        raise RuntimeError(
+            f"No .docx template is configured for template_type '{template_type}'."
+        )
+
+    try:
+        from docxtpl import DocxTemplate
+    except Exception as exc:
+        raise RuntimeError(
+            "docxtpl is required for Word template generation. "
+            "Install Python dependencies with pip install -r requirements.txt. "
+            f"Underlying import error: {exc!r}"
+        ) from exc
+
+    template = DocxTemplate(str(template_path))
+    template.render(context)
+    output = BytesIO()
+    template.save(output)
+    return output.getvalue()
+
+
+def build_document(document_data: Dict, template_type: str, output_format: str) -> Tuple[bytes, Dict, Dict]:
     normalized_type = normalize_template_type(template_type)
+    normalized_output_format = normalize_output_format(output_format)
     config = template_config(normalized_type)
-    fields = template_fields(normalized_type)
-    context = build_template_context(document_data, normalized_type)
-    html_content = render_template_html(normalized_type, context)
-    pdf_bytes = html_to_pdf_bytes(html_content)
+    fields = template_fields(normalized_type, normalized_output_format)
+    context = build_template_context(document_data, normalized_type, normalized_output_format)
+
+    if normalized_output_format == "pdf":
+        html_content = render_template_html(normalized_type, context)
+        document_bytes = html_to_pdf_bytes(html_content)
+    else:
+        document_bytes = docx_template_to_bytes(normalized_type, context)
+
     empty_fields = [
         field
         for field in fields
@@ -897,13 +1120,16 @@ def build_pdf(document_data: Dict, template_type: str) -> Tuple[bytes, Dict, Dic
     ]
 
     return (
-        pdf_bytes,
+        document_bytes,
         {
             "template_type": normalized_type,
             "template_label": config["label"],
             "template_file": config["file"],
+            "docx_template_file": DOCX_TEMPLATE_REGISTRY.get(normalized_type, {}).get("file", ""),
             "template_fields": fields,
             "empty_fields": empty_fields,
+            "output_format": normalized_output_format,
+            "output_label": OUTPUT_FORMAT_REGISTRY[normalized_output_format]["label"],
         },
         context,
     )
@@ -923,6 +1149,8 @@ def health_check():
     weasyprint_available = True
     weasyprint_error = ""
     weasyprint_version = ""
+    docxtpl_available = True
+    docxtpl_error = ""
 
     try:
         import weasyprint
@@ -932,12 +1160,25 @@ def health_check():
         weasyprint_available = False
         weasyprint_error = repr(exc)
 
+    try:
+        import docxtpl  # noqa: F401
+    except Exception as exc:
+        docxtpl_available = False
+        docxtpl_error = repr(exc)
+
     return jsonify(
         {
             "success": True,
-            "message": "GLS PDF backend is running.",
+            "message": "GLS document backend is running.",
             "template_count": len(PDF_TEMPLATE_REGISTRY),
             "templates_dir_exists": TEMPLATE_DIR.exists(),
+            "docx_templates_available": sorted(
+                template_type
+                for template_type in PDF_TEMPLATE_REGISTRY
+                if docx_template_path(template_type)
+            ),
+            "docxtpl_available": docxtpl_available,
+            "docxtpl_error": docxtpl_error,
             "weasyprint_available": weasyprint_available,
             "weasyprint_version": weasyprint_version,
             "weasyprint_error": weasyprint_error,
@@ -962,6 +1203,7 @@ def list_templates():
         return jsonify({"success": False, "message": str(exc)}), 500
 
 
+@app.route("/generate-document", methods=["POST", "OPTIONS"])
 @app.route("/generate-pdf", methods=["POST", "OPTIONS"])
 def generate_pdf():
     if request.method == "OPTIONS":
@@ -973,35 +1215,37 @@ def generate_pdf():
 
     try:
         template_type = requested_template_type(payload)
+        output_format = requested_output_format(payload)
         document_data = extract_document_data(payload)
     except Exception as exc:
         return jsonify({"success": False, "message": str(exc)}), 400
 
-    local_pdf_path = ""
+    local_file_path = ""
 
     try:
-        pdf_bytes, template_info, render_context = build_pdf(document_data, template_type)
+        file_bytes, template_info, render_context = build_document(document_data, template_type, output_format)
     except Exception as exc:
         return (
             jsonify(
                 {
                     "success": False,
-                    "message": "Failed to generate PDF.",
+                    "message": "Failed to generate file.",
                     "error": str(exc),
                     "template_type": template_type,
+                    "output_format": output_format,
                 }
             ),
             500,
         )
 
-    file_name = build_pdf_filename(template_info, render_context)
-    pdf_path = OUTPUT_DIR / file_name
+    file_name = build_document_filename(template_info, render_context, output_format)
+    output_path = OUTPUT_DIR / file_name
 
     runtime_config = resolve_runtime_config(payload)
-    if runtime_config.get("save_local_pdf_copy"):
+    if runtime_config.get("save_local_document_copy"):
         ensure_output_dir()
-        pdf_path.write_bytes(pdf_bytes)
-        local_pdf_path = str(pdf_path)
+        output_path.write_bytes(file_bytes)
+        local_file_path = str(output_path)
 
     monday_result = None
     monday_error = None
@@ -1029,10 +1273,10 @@ def generate_pdf():
 
             try:
                 monday_result = upload_to_monday(
-                    pdf_bytes,
+                    file_bytes,
                     file_name,
                     monday_payload,
-                    local_pdf_path=local_pdf_path,
+                    local_file_path=local_file_path,
                 )
             except Exception as exc:
                 monday_error = str(exc)
@@ -1041,13 +1285,17 @@ def generate_pdf():
         jsonify(
             {
                 "success": True,
-                "message": "PDF generated successfully.",
-                "file_path": local_pdf_path or None,
+                "message": "File generated successfully.",
+                "file_path": local_file_path or None,
                 "generated_filename": file_name,
-                "saved_locally": bool(local_pdf_path),
+                "mime_type": mimetypes.guess_type(file_name)[0] or "application/octet-stream",
+                "saved_locally": bool(local_file_path),
+                "output_format": output_format,
+                "output_label": OUTPUT_FORMAT_REGISTRY[output_format]["label"],
                 "template_type": template_info["template_type"],
                 "template_label": template_info["template_label"],
                 "template_file": template_info["template_file"],
+                "docx_template_file": template_info["docx_template_file"],
                 "template_fields": template_info["template_fields"],
                 "empty_fields": template_info["empty_fields"],
                 "monday_requested": monday_requested,
@@ -1103,7 +1351,7 @@ def config_defaults():
             missing_fields.append("enabled")
         if not config.get("board_id"):
             missing_fields.append("board_id")
-        if config.get("upload_pdf") and not config.get("file_column_id"):
+        if config.get("upload_generated_file") and not config.get("file_column_id"):
             missing_fields.append("file_column_id")
 
         return (
@@ -1111,6 +1359,11 @@ def config_defaults():
                 {
                     "success": True,
                     "default_template_type": DEFAULT_TEMPLATE_TYPE,
+                    "default_output_format": DEFAULT_OUTPUT_FORMAT,
+                    "output_formats": [
+                        {"value": value, "label": config["label"]}
+                        for value, config in OUTPUT_FORMAT_REGISTRY.items()
+                    ],
                     "templates": template_catalog(),
                     "monday": {
                         "enabled": config.get("enabled", False),
@@ -1118,9 +1371,10 @@ def config_defaults():
                         "group_id": config.get("group_id", ""),
                         "file_column_id": config.get("file_column_id", ""),
                         "item_name_template": config.get("item_name_template", "${customer_name}"),
+                        "upload_generated_file": config.get("upload_generated_file", True),
                         "upload_pdf": config.get("upload_pdf", True),
                         "save_mapped_columns": config.get("save_mapped_columns", False),
-                        "save_local_pdf_copy": resolve_runtime_config({}).get("save_local_pdf_copy", False),
+                        "save_local_document_copy": resolve_runtime_config({}).get("save_local_document_copy", False),
                         "integration_ready": len(missing_fields) == 0,
                         "missing_fields": missing_fields,
                     },
