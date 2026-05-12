@@ -141,6 +141,19 @@ curl -X POST http://127.0.0.1:5001/webhooks/monday/file-generator \
 
 The included `Dockerfile` is the recommended deployment path because it installs Japanese fonts and native WeasyPrint libraries.
 
+When deploying from GitHub in the Cloud Run UI:
+
+- Source: `Continuously deploy from a repository`
+- Build provider: `Cloud Build`
+- Repository: choose this GitHub repository
+- Branch: choose the branch you want to deploy, usually `main`
+- Build type: `Dockerfile`
+- Dockerfile path: `Dockerfile`
+- Source directory: `/`
+- Authentication: `Allow public access` if monday webhooks will call it directly
+- Container port: `8080`
+- Environment variable: set `MONDAY_API_TOKEN`
+
 Deploy from source:
 
 ```bash

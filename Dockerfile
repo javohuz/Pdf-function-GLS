@@ -1,7 +1,8 @@
-FROM python:3.13-slim-bookworm
+FROM python:3.12-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    XDG_CACHE_HOME=/tmp/.cache \
     PORT=8080
 
 WORKDIR /app
@@ -20,6 +21,8 @@ RUN apt-get update \
         libjpeg62-turbo \
         libopenjp2-7 \
         shared-mime-info \
+    && mkdir -p /tmp/.cache/fontconfig \
+    && fc-cache -f \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt .
