@@ -1,14 +1,11 @@
 {
   "boards": {
-    "BOARD_ID_ALLOCATION_NOTICE": {
+    "YOUR_BOARD_ID": {
       "enabled": true,
-      "document_type": "allocation_notice",
-      "template_type": "allocation_notice",
       "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
+      "file_name_template": "${template_type}-${item_name}-${bond_number}",
       "match_mode": "column_name",
       "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
         "status_column_id": "YOUR_STATUS_COLUMN_ID",
         "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
       },
@@ -24,261 +21,25 @@
       },
       "status_labels": {
         "processing_label": "Generating",
-        "success_label": "Set file",
+        "success_label": "Generated",
         "error_label": "Error"
-      }
-    },
-    "BOARD_ID_ALLOCATION_NOTICE_GMO": {
-      "enabled": true,
-      "document_type": "allocation_notice_gmo",
-      "template_type": "allocation_notice_gmo",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
       },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_APPLICATION_FORM": {
-      "enabled": true,
-      "document_type": "application_form",
-      "template_type": "application_form",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_APPLICATION_FORM_PERIOD": {
-      "enabled": true,
-      "document_type": "application_form_period",
-      "template_type": "application_form_period",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_CONDITION_SUMMARY": {
-      "enabled": true,
-      "document_type": "condition_summary",
-      "template_type": "condition_summary",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_INTEREST_CALCULATION": {
-      "enabled": true,
-      "document_type": "interest_calculation",
-      "template_type": "interest_calculation",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_MONTHLY_INTEREST_NOTICE": {
-      "enabled": true,
-      "document_type": "monthly_interest_notice",
-      "template_type": "monthly_interest_notice",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_ISSUANCE_TERMS_LONG": {
-      "enabled": true,
-      "document_type": "issuance_terms_long",
-      "template_type": "issuance_terms_long",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_PAYMENT_RECEIPT": {
-      "enabled": true,
-      "document_type": "payment_receipt",
-      "template_type": "payment_receipt",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
-    },
-    "BOARD_ID_TERMS_TWO_PAGE": {
-      "enabled": true,
-      "document_type": "terms_two_page",
-      "template_type": "terms_two_page",
-      "output_format": "docx",
-      "file_name_template": "${template_type}-${recipient_name}-${payment_deadline}",
-      "match_mode": "column_name",
-      "monday": {
-        "file_column_id": "YOUR_FILE_COLUMN_ID",
-        "status_column_id": "YOUR_STATUS_COLUMN_ID",
-        "result_message_column_id": "YOUR_OPTIONAL_MESSAGE_COLUMN_ID"
-      },
-      "column_name_rules": {
-        "normalize_case": true,
-        "trim_spaces": true
-      },
-      "overrides": {},
-      "defaults": {},
-      "upload": {
-        "upload_generated_file": true,
-        "replace_existing_file": true
-      },
-      "status_labels": {
-        "processing_label": "Generating",
-        "success_label": "Set file",
-        "error_label": "Error"
-      }
+      "documents": [
+        {
+          "document_type": "allocation_notice_gmo",
+          "template_type": "allocation_notice_gmo",
+          "monday": {
+            "file_column_id": "YOUR_ALLOCATION_NOTICE_FILE_COLUMN_ID"
+          }
+        },
+        {
+          "document_type": "monthly_interest_notice",
+          "template_type": "monthly_interest_notice",
+          "monday": {
+            "file_column_id": "YOUR_MONTHLY_INTEREST_FILE_COLUMN_ID"
+          }
+        }
+      ]
     }
   }
 }

@@ -17,12 +17,11 @@ from jinja2 import Environment, FileSystemLoader, meta, select_autoescape
 app = Flask(__name__)
 
 BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env")
 TEMPLATE_DIR = BASE_DIR / "templates"
 BOARD_DOCUMENT_CONFIG_PATH = Path(
     os.getenv("BOARD_DOCUMENT_CONFIG_PATH", str(BASE_DIR / "board_document_config.json"))
 )
-
-load_dotenv(BASE_DIR / ".env")
 
 DEFAULT_TEMPLATE_TYPE = "allocation_notice_gmo"
 DEFAULT_OUTPUT_FORMAT = "pdf"
@@ -229,6 +228,105 @@ def normalize_output_format(raw_output_format) -> str:
     return output_format
 
 
+def merged_dict(parent: Any, child: Any) -> Dict[str, Any]:
+    merged: Dict[str, Any] = {}
+    if isinstance(parent, dict):
+        merged.update(parent)
+    if isinstance(child, dict):
+        merged.update(child)
+    return merged
+
+
+def normalize_document_setup(
+    board_key: str,
+    board_config: Dict[str, Any],
+    document_config: Dict[str, Any],
+    document_index: int,
+) -> Dict[str, Any]:
+    setup: Dict[str, Any] = {}
+    setup["board_id"] = board_key
+    setup["document_index"] = document_index
+    setup["enabled"] = parse_bool(board_config.get("enabled"), True) and parse_bool(
+        document_config.get("enabled"),
+        True,
+    )
+    setup["document_type"] = str(
+        document_config.get("document_type")
+        or document_config.get("template_type")
+        or board_config.get("document_type")
+        or board_config.get("template_type")
+        or DEFAULT_TEMPLATE_TYPE
+    ).strip()
+    setup["template_type"] = normalize_template_type(setup["document_type"])
+    setup["output_format"] = normalize_output_format(
+        document_config.get("output_format")
+        or board_config.get("output_format")
+        or DEFAULT_OUTPUT_FORMAT
+    )
+    setup["match_mode"] = str(
+        document_config.get("match_mode")
+        or board_config.get("match_mode")
+        or "column_name"
+    ).strip().lower()
+    setup["file_name_template"] = str(
+        document_config.get("file_name_template")
+        or board_config.get("file_name_template")
+        or ""
+    ).strip()
+
+    if setup["match_mode"] != "column_name":
+        raise ValueError(
+            f"Unsupported match_mode '{setup['match_mode']}' for board_id '{board_key}', "
+            f"document #{document_index + 1}."
+        )
+
+    setup["monday"] = merged_dict(board_config.get("monday"), document_config.get("monday"))
+    setup["column_name_rules"] = merged_dict(
+        board_config.get("column_name_rules"),
+        document_config.get("column_name_rules"),
+    )
+    setup["overrides"] = merged_dict(board_config.get("overrides"), document_config.get("overrides"))
+    setup["defaults"] = merged_dict(board_config.get("defaults"), document_config.get("defaults"))
+    setup["upload"] = merged_dict(board_config.get("upload"), document_config.get("upload"))
+    setup["status_labels"] = merged_dict(
+        board_config.get("status_labels"),
+        document_config.get("status_labels"),
+    )
+
+    if not isinstance(setup.get("monday"), dict):
+        raise ValueError(
+            f"board_id '{board_key}', document #{document_index + 1} is missing a valid 'monday' object."
+        )
+
+    for key in ("column_name_rules", "overrides", "defaults", "upload", "status_labels"):
+        if not isinstance(setup.get(key), dict):
+            raise ValueError(f"board_id '{board_key}', document #{document_index + 1} has an invalid '{key}' object.")
+
+    return setup
+
+
+def board_document_entries(board_config: Dict[str, Any]) -> List[Dict[str, Any]]:
+    raw_documents = board_config.get("documents")
+    if raw_documents is None:
+        return [board_config]
+
+    if isinstance(raw_documents, list):
+        return raw_documents
+
+    if isinstance(raw_documents, dict):
+        documents = []
+        for document_type, document_config in raw_documents.items():
+            if not isinstance(document_config, dict):
+                raise ValueError("Each item in 'documents' must be an object.")
+            normalized = dict(document_config)
+            normalized.setdefault("document_type", document_type)
+            normalized.setdefault("template_type", document_type)
+            documents.append(normalized)
+        return documents
+
+    raise ValueError("'documents' must be an array or object when provided.")
+
+
 def resolve_board_document_setup(board_id) -> Dict[str, Any]:
     board_key = str(board_id or "").strip()
     config = load_board_document_config()
@@ -239,36 +337,39 @@ def resolve_board_document_setup(board_id) -> Dict[str, Any]:
             f"{BOARD_DOCUMENT_CONFIG_PATH.name}."
         )
 
-    setup = dict(board_config)
-    setup["board_id"] = board_key
-    setup["enabled"] = parse_bool(setup.get("enabled"), True)
-    setup["document_type"] = str(
-        setup.get("document_type") or setup.get("template_type") or DEFAULT_TEMPLATE_TYPE
-    ).strip()
-    setup["template_type"] = normalize_template_type(setup["document_type"])
-    setup["output_format"] = normalize_output_format(
-        setup.get("output_format") or DEFAULT_OUTPUT_FORMAT
-    )
-    setup["match_mode"] = str(setup.get("match_mode") or "column_name").strip().lower()
-    setup["file_name_template"] = str(setup.get("file_name_template") or "").strip()
+    document_configs = board_document_entries(board_config)
+    if not document_configs:
+        raise ValueError(f"board_id '{board_key}' must configure at least one document.")
 
-    if setup["match_mode"] != "column_name":
-        raise ValueError(
-            f"Unsupported match_mode '{setup['match_mode']}' for board_id '{board_key}'."
+    setup = {
+        "board_id": board_key,
+        "enabled": parse_bool(board_config.get("enabled"), True),
+        "monday": merged_dict(board_config.get("monday"), {}),
+        "status_labels": merged_dict(board_config.get("status_labels"), {}),
+        "documents": [],
+    }
+
+    for index, document_config in enumerate(document_configs):
+        if not isinstance(document_config, dict):
+            raise ValueError(f"board_id '{board_key}' document #{index + 1} must be an object.")
+        setup["documents"].append(
+            normalize_document_setup(board_key, board_config, document_config, index)
         )
 
-    if not isinstance(setup.get("monday"), dict):
-        raise ValueError(f"board_id '{board_key}' is missing a valid 'monday' object.")
+    if not setup["monday"] and setup["documents"]:
+        setup["monday"] = {
+            key: value
+            for key, value in setup["documents"][0].get("monday", {}).items()
+            if key in {"status_column_id", "result_message_column_id"}
+        }
+    else:
+        first_document_monday = setup["documents"][0].get("monday", {}) if setup["documents"] else {}
+        for key in ("status_column_id", "result_message_column_id"):
+            if is_blank(setup["monday"].get(key)) and not is_blank(first_document_monday.get(key)):
+                setup["monday"][key] = first_document_monday[key]
 
-    setup.setdefault("column_name_rules", {})
-    setup.setdefault("overrides", {})
-    setup.setdefault("defaults", {})
-    setup.setdefault("upload", {})
-    setup.setdefault("status_labels", {})
-
-    for key in ("column_name_rules", "overrides", "defaults", "upload", "status_labels"):
-        if not isinstance(setup.get(key), dict):
-            raise ValueError(f"board_id '{board_key}' has an invalid '{key}' object.")
+    if not setup["status_labels"] and setup["documents"]:
+        setup["status_labels"] = dict(setup["documents"][0].get("status_labels", {}))
 
     return setup
 
@@ -1052,6 +1153,76 @@ def update_webhook_item_status(
     return update_monday_item_columns(item_id, board_id, column_values, config)
 
 
+def usable_monday_column_id(value: str) -> bool:
+    text = str(value or "").strip()
+    return bool(text) and text.lower() not in {"not found", "none", "null", "missing", "todo"}
+
+
+def generate_and_upload_webhook_document(
+    item_row: Dict[str, Any],
+    item_id: str,
+    board_id: str,
+    config: Dict[str, Any],
+    document_setup: Dict[str, Any],
+) -> Dict[str, Any]:
+    template_type = document_setup["template_type"]
+    output_format = document_setup["output_format"]
+    document_data = monday_item_to_document_data(item_row, document_setup)
+    file_bytes, template_info, render_context = build_document(document_data, template_type, output_format)
+    file_name = build_document_filename(
+        template_info,
+        render_context,
+        output_format,
+        board_setup=document_setup,
+    )
+
+    upload_settings = document_setup.get("upload", {})
+    monday_settings = document_setup.get("monday", {})
+    file_column_id = str(monday_settings.get("file_column_id", "")).strip()
+    upload_generated_file = parse_bool(upload_settings.get("upload_generated_file"), True)
+    replace_existing_file = parse_bool(upload_settings.get("replace_existing_file"), True)
+    file_clear_response = None
+    file_upload_response = None
+
+    if upload_generated_file:
+        if not usable_monday_column_id(file_column_id):
+            raise ValueError(
+                f"Document '{template_type}' is configured to upload files, "
+                "but monday.file_column_id is missing or invalid."
+            )
+
+        if replace_existing_file:
+            file_clear_response = clear_monday_file_column(
+                item_id=item_id,
+                board_id=board_id,
+                file_column_id=file_column_id,
+                config=config,
+            )
+
+        file_upload_response = upload_generated_file_to_column(
+            item_id=item_id,
+            file_column_id=file_column_id,
+            file_bytes=file_bytes,
+            filename=file_name,
+            config=config,
+        )
+
+    return {
+        "success": True,
+        "document_index": document_setup.get("document_index"),
+        "template_type": template_info["template_type"],
+        "template_label": template_info["template_label"],
+        "output_format": output_format,
+        "generated_filename": file_name,
+        "file_column_id": file_column_id,
+        "file_uploaded": bool(file_upload_response),
+        "file_replaced": bool(file_clear_response),
+        "file_clear_response": file_clear_response,
+        "file_upload_response": file_upload_response,
+        "empty_fields": template_info["empty_fields"],
+    }
+
+
 @app.route("/webhooks/monday/file-generator", methods=["POST"])
 def monday_file_generator_webhook():
     payload = request.get_json(silent=True) or {}
@@ -1117,51 +1288,69 @@ def monday_file_generator_webhook():
             processing_status_error = str(exc)
 
         item_row = fetch_monday_item_row(item_id, board_id, monday_config)
-        document_data = monday_item_to_document_data(item_row, board_setup)
-        template_type = board_setup["template_type"]
-        output_format = board_setup["output_format"]
-        file_bytes, template_info, render_context = build_document(document_data, template_type, output_format)
-        file_name = build_document_filename(template_info, render_context, output_format, board_setup=board_setup)
-        upload_settings = board_setup.get("upload", {})
+        document_results: List[Dict[str, Any]] = []
+        document_errors: List[str] = []
 
-        monday_settings = board_setup.get("monday", {})
-        file_column_id = str(monday_settings.get("file_column_id", "")).strip()
-        upload_generated_file = parse_bool(upload_settings.get("upload_generated_file"), True)
-        replace_existing_file = parse_bool(upload_settings.get("replace_existing_file"), True)
-        file_clear_response = None
-        file_upload_response = None
-
-        if upload_generated_file:
-            if not file_column_id:
-                raise ValueError(
-                    f"board_id '{board_id}' is configured to upload files, but monday.file_column_id is missing."
+        for document_setup in board_setup.get("documents", []):
+            template_type = document_setup.get("template_type", "")
+            if not document_setup.get("enabled", True):
+                document_results.append(
+                    {
+                        "success": True,
+                        "skipped": True,
+                        "template_type": template_type,
+                        "message": "Document generation is disabled for this document.",
+                    }
                 )
+                continue
 
-            if replace_existing_file:
-                file_clear_response = clear_monday_file_column(
-                    item_id=item_id,
-                    board_id=board_id,
-                    file_column_id=file_column_id,
-                    config=monday_config,
+            try:
+                document_results.append(
+                    generate_and_upload_webhook_document(
+                        item_row=item_row,
+                        item_id=item_id,
+                        board_id=board_id,
+                        config=monday_config,
+                        document_setup=document_setup,
+                    )
                 )
-
-            file_upload_response = upload_generated_file_to_column(
-                item_id=item_id,
-                file_column_id=file_column_id,
-                file_bytes=file_bytes,
-                filename=file_name,
-                config=monday_config,
-            )
+            except Exception as exc:
+                error_message = str(exc)
+                document_errors.append(error_message)
+                document_results.append(
+                    {
+                        "success": False,
+                        "template_type": template_type,
+                        "file_column_id": document_setup.get("monday", {}).get("file_column_id", ""),
+                        "error": error_message,
+                    }
+                )
 
         success_status_error = ""
+        successful_documents = [
+            result
+            for result in document_results
+            if result.get("success") and not result.get("skipped")
+        ]
+        uploaded_documents = [
+            result
+            for result in successful_documents
+            if result.get("file_uploaded")
+        ]
+        status_key = "error" if document_errors else "success"
+        status_message = (
+            f"Generated {len(successful_documents)}/{len(board_setup.get('documents', []))} files"
+            if not document_errors
+            else f"Generated {len(successful_documents)} files, {len(document_errors)} errors"
+        )
         try:
             update_webhook_item_status(
                 item_id,
                 board_id,
                 monday_config,
                 board_setup,
-                "success",
-                message=f"Generated {file_name}",
+                status_key,
+                message=status_message,
             )
         except Exception as exc:
             success_status_error = str(exc)
@@ -1170,20 +1359,19 @@ def monday_file_generator_webhook():
 
         return jsonify(
             {
-                "success": True,
-                "message": "Webhook file generation completed successfully.",
+                "success": not document_errors,
+                "message": (
+                    "Webhook file generation completed with document errors."
+                    if document_errors
+                    else "Webhook file generation completed successfully."
+                ),
                 "board_id": board_id,
                 "item_id": item_id,
                 "trigger_uuid": trigger_uuid,
-                "template_type": template_info["template_type"],
-                "template_label": template_info["template_label"],
-                "output_format": output_format,
-                "generated_filename": file_name,
-                "file_uploaded": bool(file_upload_response),
-                "file_replaced": bool(file_clear_response),
-                "file_clear_response": file_clear_response,
-                "file_upload_response": file_upload_response,
-                "empty_fields": template_info["empty_fields"],
+                "success_count": len(successful_documents),
+                "upload_count": len(uploaded_documents),
+                "error_count": len(document_errors),
+                "documents": document_results,
                 "processing_status_error": processing_status_error or None,
                 "success_status_error": success_status_error or None,
             }
@@ -1239,6 +1427,12 @@ def health_check():
 
     board_config = load_board_document_config()
     configured_board_ids = sorted(str(board_id) for board_id in board_config.get("boards", {}).keys())
+    configured_board_document_counts = {}
+    for board_id in configured_board_ids:
+        try:
+            configured_board_document_counts[board_id] = len(resolve_board_document_setup(board_id).get("documents", []))
+        except Exception as exc:
+            configured_board_document_counts[board_id] = f"config error: {exc}"
 
     return jsonify(
         {
@@ -1255,6 +1449,7 @@ def health_check():
             "docxtpl_error": docxtpl_error,
             "board_document_config_path": str(BOARD_DOCUMENT_CONFIG_PATH),
             "configured_board_ids": configured_board_ids,
+            "configured_board_document_counts": configured_board_document_counts,
             "weasyprint_available": weasyprint_available,
             "weasyprint_version": weasyprint_version,
             "weasyprint_error": weasyprint_error,

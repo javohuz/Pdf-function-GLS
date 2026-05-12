@@ -1,15 +1,12 @@
 {
   "boards": {
-    "5095195874": {
+    "18398202857": {
       "enabled": true,
-      "document_type": "terms_two_page",
-      "template_type": "terms_two_page",
       "output_format": "docx",
-      "file_name_template": "${item_name}-${bond_number}",
+      "file_name_template": "${template_type}-${item_name}-${bond_number}",
       "match_mode": "column_name",
       "monday": {
-        "file_column_id": "file_mm2qgmt1",
-        "status_column_id": "color_mm34cpyx",
+        "status_column_id": "color_mm39x27p",
         "result_message_column_id": ""
       },
       "column_name_rules": {
@@ -24,9 +21,108 @@
       },
       "status_labels": {
         "processing_label": "Generating",
-        "success_label": "Done",
+        "success_label": "Generated",
         "error_label": "Error"
-      }
+      },
+      "documents": [
+        {
+          "document_type": "allocation_notice_gmo",
+          "template_type": "allocation_notice_gmo",
+          "monday": {
+            "file_column_id": "file_mkzw580q"
+          }
+        },
+        {
+          "document_type": "monthly_interest_notice",
+          "template_type": "monthly_interest_notice",
+          "monday": {
+            "file_column_id": "file_mkzww4s0"
+          }
+        },
+        {
+          "document_type": "issuance_terms_long",
+          "template_type": "issuance_terms_long",
+          "monday": {
+            "file_column_id": "file_mm39ep48"
+          }
+        },
+        {
+          "document_type": "application_form_period",
+          "template_type": "application_form_period",
+          "monday": {
+            "file_column_id": "file_mm39sadz"
+          }
+        }
+      ]
+    },
+    "18396744855": {
+      "enabled": true,
+      "output_format": "docx",
+      "file_name_template": "${template_type}-${item_name}-${bond_number}",
+      "match_mode": "column_name",
+      "monday": {
+        "status_column_id": "color_mm39czjk",
+        "result_message_column_id": ""
+      },
+      "column_name_rules": {
+        "normalize_case": true,
+        "trim_spaces": true
+      },
+      "overrides": {},
+      "defaults": {},
+      "upload": {
+        "upload_generated_file": true,
+        "replace_existing_file": true
+      },
+      "status_labels": {
+        "processing_label": "Generating",
+        "success_label": "Generated",
+        "error_label": "Error"
+      },
+      "documents": [
+        {
+          "document_type": "payment_receipt",
+          "template_type": "payment_receipt",
+          "monday": {
+            "file_column_id": "file_mkzwg8za"
+          }
+        },
+        {
+          "document_type": "condition_summary",
+          "template_type": "condition_summary",
+          "monday": {
+            "file_column_id": "file_mkzwn873"
+          }
+        },
+        {
+          "document_type": "interest_calculation",
+          "template_type": "interest_calculation",
+          "monday": {
+            "file_column_id": "file_mkzww4s0"
+          }
+        },
+        {
+          "document_type": "terms_two_page",
+          "template_type": "terms_two_page",
+          "monday": {
+            "file_column_id": "Not found"
+          }
+        },
+        {
+          "document_type": "allocation_notice",
+          "template_type": "allocation_notice",
+          "monday": {
+            "file_column_id": "file_mkzw580q"
+          }
+        },
+        {
+          "document_type": "application_form",
+          "template_type": "application_form",
+          "monday": {
+            "file_column_id": "Not found"
+          }
+        }
+      ]
     }
   }
 }

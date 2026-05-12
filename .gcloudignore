@@ -9,3 +9,6 @@ __pycache__/
 .DS_Store
 output/
 monday_config.json
+.env
+.env.*
+!.env.example
